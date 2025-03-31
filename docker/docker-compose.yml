@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   bitcoind:
-    image: ruimarinho/bitcoin-core:25.0
+    image: ruimarinho/bitcoin-core:23.0
     container_name: bitcoind
     restart: unless-stopped
     ports:
@@ -33,14 +31,17 @@ services:
     container_name: lnd
     restart: unless-stopped
     ports:
-      - "9735:9735"   # p2p
+      - "9735:9735" # p2p
       - "10009:10009" # RPC
-      - "8080:8080"   # REST
-    volumes:
-      - lnd_data:/root/.lnd
+      - "8080:8080" # REST
     depends_on:
       - bitcoind
-    entrypoint: ["./lnd-entrypoint.sh"]
+    entrypoint:
+      [
+        "sh",
+        "-c",
+        "chmod +x /lnd-entrypoint.sh && ln -s /usr/local/bin/lncli /lncli && ./lnd-entrypoint.sh",
+      ]
     command:
       - --bitcoin.active
       - --bitcoin.regtest
@@ -58,10 +59,10 @@ services:
       - --noseedbackup
       - --alias=my-lightning-node
     volumes:
+      - lnd_data:/root/.lnd
       - type: bind
         source: ./lnd-entrypoint.sh
         target: /lnd-entrypoint.sh
-        read_only: true
 
   lnbits:
     image: lnbitsdocker/lnbits:latest
@@ -80,7 +81,7 @@ services:
       - lnd
 
   lightning-terminal:
-    image: lightninglabs/lightning-terminal:v0.11.1-alpha
+    image: lightninglabs/lightning-terminal:v0.10.0-alpha
     container_name: lit
     restart: unless-stopped
     ports:
@@ -91,7 +92,7 @@ services:
       - lnd_data:/root/.lnd:ro
       - lit_data:/root/.lit
     command:
-      - --lnd.host=lnd:10009
+      - --lnd.addr=lnd:10009
       - --uipassword=password
 
 volumes:
