@@ -1,0 +1,184 @@
+@font-face {
+  font-family: "Roboto";
+  src: url("../fonts/Roboto-Regular.ttf") format("truetype");
+}
+
+.root {
+  -fx-font-family: "Roboto";
+  -fx-font-size: 14px;
+  -fx-background-color: #f4f4f4;
+}
+
+.title {
+  -fx-font-size: 24px;
+  -fx-font-weight: bold;
+  -fx-text-fill: #333;
+}
+
+.button {
+  -fx-background-color: #0078d7;
+  -fx-text-fill: white;
+  -fx-padding: 10px;
+}
+
+.root:light,
+.root:dark {
+  -fx-background-color: transparent;
+}
+
+.store-layout .split-pane-divider {
+  -fx-background-color: transparent;
+}
+
+.edit-button.icon-button-comp {
+  -fx-background-radius: 4px;
+  -fx-border-width: 1px;
+  -fx-border-radius: 4px;
+  -fx-padding: 5px;
+  -fx-background-color: -color-bg-default;
+  -fx-border-color: -color-neutral-emphasis;
+}
+
+.edit-button.icon-button-comp:hover,
+.root:key-navigation .edit-button.icon-button-comp:focused {
+  -fx-background-color: -color-accent-muted;
+}
+
+.scan-list {
+  -fx-background-radius: 4px;
+  -fx-border-width: 0.05em;
+  -fx-border-radius: 4px;
+  -fx-padding: 1px;
+  -fx-background-color: -color-bg-default;
+  -fx-border-color: -color-neutral-emphasis;
+}
+
+.scan-list .list-content {
+  -fx-padding: 0.7em 1px 1em 1em;
+}
+
+.root:windows .text {
+  -fx-font-smoothing-type: gray;
+}
+
+.root:linux .text {
+  -fx-font-smoothing-type: lcd;
+}
+
+.radio-button {
+  -fx-background-color: transparent;
+}
+
+.icon-button-comp {
+  -fx-padding: 0.05em;
+}
+
+.root:key-navigation .icon-button-comp:focused {
+  -fx-background-color: -color-accent-muted;
+}
+
+.scroll-pane {
+  -fx-background-color: transparent;
+}
+
+.root:light .loading-comp {
+  -fx-background-color: rgba(100, 100, 100, 0.5);
+}
+
+.root:dark .loading-comp {
+  -fx-background-color: rgba(0, 0, 0, 0.5);
+}
+
+.icon-browser {
+  -fx-border-color: transparent;
+  -color-cell-border: transparent;
+}
+
+.icon-browser .column-header-background {
+  -fx-max-height: 0;
+  -fx-pref-height: 0;
+  -fx-min-height: 0;
+}
+
+.icon-browser .table-row-cell {
+  -fx-cell-size: 80px;
+  -fx-background-color: transparent;
+}
+
+.icon-browser .table-row-cell .icon-label {
+  -fx-padding: 15 0;
+  -fx-cursor: hand;
+}
+
+.intro .button {
+  -fx-padding: 6 10;
+}
+
+.error-overlay-comp {
+  -fx-font-size: 0.9em;
+}
+
+.store-creator > .top > .choice-comp {
+  -fx-opacity: 0.9;
+}
+
+.store-creator > .top > .choice-comp * {
+  -fx-opacity: 1;
+}
+
+.store-creator .combo-box:disabled .arrow {
+  -fx-background-color: transparent;
+}
+
+.root:pretty:light .store-active-comp .dot {
+  -fx-fill: radial-gradient(
+    radius 180%,
+    rgb(30, 180, 30, 0.6),
+    rgb(20, 120, 20, 0.65),
+    rgb(37, 200, 37, 0.6)
+  );
+}
+
+.root:performance:light .store-active-comp .dot {
+  -fx-fill: rgb(30, 180, 30, 0.6);
+}
+
+.root:pretty:dark .store-active-comp .dot {
+  -fx-fill: radial-gradient(
+    radius 180%,
+    rgb(30, 180, 30, 0.8),
+    rgb(20, 120, 20, 0.85),
+    rgb(37, 200, 37, 0.8)
+  );
+}
+
+.root:performance:dark .store-active-comp .dot {
+  -fx-fill: rgb(30, 180, 30, 0.7);
+}
+
+.vbox {
+  -fx-spacing: 10px;
+  -fx-padding: 20px;
+  -fx-background-color: #f4f4f4;
+}
+
+/* Style for the label */
+.label {
+  -fx-font-size: 18px;
+  -fx-font-weight: bold;
+  -fx-text-fill: #333;
+}
+
+/* Style for buttons */
+.button {
+  -fx-background-color: #0078d7;
+  -fx-text-fill: white;
+  -fx-font-size: 14px;
+  -fx-padding: 10px;
+  -fx-border-radius: 5px;
+  -fx-background-radius: 5px;
+}
+
+.button:hover {
+  -fx-background-color: #005a9e;
+}
