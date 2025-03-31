@@ -9,7 +9,7 @@ public class App extends Application {
     @Override
     public void start(Stage stage) {
         MainView mainView = new MainView();
-        Scene scene = new Scene(mainView.getView(), 600, 400);
+        Scene scene = new Scene(mainView.getView(), 1280, 720);
 
         // Load the CSS file
         String cssPath = null;

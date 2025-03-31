@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" name="com.wallet.AppTest" time="0.046" tests="1" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" name="com.wallet.AppTest" time="0.029" tests="1" errors="0" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="23"/>
     <property name="sun.jnu.encoding" value="UTF-8"/>
@@ -12,7 +12,7 @@
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="user.country" value="TH"/>
     <property name="sun.boot.library.path" value="/opt/homebrew/Cellar/openjdk/23.0.2/libexec/openjdk.jdk/Contents/Home/lib"/>
-    <property name="sun.java.command" value="/Users/chanthawat/Development/java-dev/wallet/target/surefire/surefirebooter14955185857612313183.jar /Users/chanthawat/Development/java-dev/wallet/target/surefire 2025-03-31T16-35-49_738-jvmRun1 surefire9866796289415574177tmp surefire_08389588652149584704tmp"/>
+    <property name="sun.java.command" value="/Users/chanthawat/Development/java-dev/wallet/target/surefire/surefirebooter11566660605723293930.jar /Users/chanthawat/Development/java-dev/wallet/target/surefire 2025-03-31T20-26-20_995-jvmRun1 surefire5346764750108629411tmp surefire_0511436282483090700tmp"/>
     <property name="http.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/>
     <property name="jdk.debug" value="release"/>
     <property name="surefire.test.class.path" value="/Users/chanthawat/Development/java-dev/wallet/target/test-classes:/Users/chanthawat/Development/java-dev/wallet/target/classes:/Users/chanthawat/.m2/repository/junit/junit/4.11/junit-4.11.jar:/Users/chanthawat/.m2/repository/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.jar:/Users/chanthawat/.m2/repository/org/openjfx/javafx-controls/21/javafx-controls-21.jar:/Users/chanthawat/.m2/repository/org/openjfx/javafx-controls/21/javafx-controls-21-mac-aarch64.jar:/Users/chanthawat/.m2/repository/org/openjfx/javafx-graphics/21/javafx-graphics-21.jar:/Users/chanthawat/.m2/repository/org/openjfx/javafx-graphics/21/javafx-graphics-21-mac-aarch64.jar:/Users/chanthawat/.m2/repository/org/openjfx/javafx-base/21/javafx-base-21.jar:/Users/chanthawat/.m2/repository/org/openjfx/javafx-base/21/javafx-base-21-mac-aarch64.jar:"/>
@@ -29,7 +29,7 @@
     <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
     <property name="java.specification.name" value="Java Platform API Specification"/>
     <property name="apple.awt.application.name" value="ForkedBooter"/>
-    <property name="surefire.real.class.path" value="/Users/chanthawat/Development/java-dev/wallet/target/surefire/surefirebooter14955185857612313183.jar"/>
+    <property name="surefire.real.class.path" value="/Users/chanthawat/Development/java-dev/wallet/target/surefire/surefirebooter11566660605723293930.jar"/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
     <property name="ftp.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/>
     <property name="java.runtime.version" value="23.0.2"/>
@@ -58,5 +58,5 @@
     <property name="socksNonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/>
     <property name="java.class.version" value="67.0"/>
   </properties>
-  <testcase name="shouldAnswerWithTrue" classname="com.wallet.AppTest" time="0.006"/>
+  <testcase name="shouldAnswerWithTrue" classname="com.wallet.AppTest" time="0"/>
 </testsuite>
