@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  bitcoind:
+    image: ruimarinho/bitcoin-core:25.0
+    container_name: bitcoind
+    restart: unless-stopped
+    ports:
+      - "18443:18443" # regtest RPC
+      - "18444:18444" # regtest p2p
+      - "28332:28332" # ZMQ blocks
+      - "28333:28333" # ZMQ transactions
+    volumes:
+      - bitcoin_data:/home/bitcoin/.bitcoin
+    command:
+      - -regtest=1
+      - -server=1
+      - -rpcbind=0.0.0.0
+      - -rpcallowip=0.0.0.0/0
+      - -rpcuser=bitcoin
+      - -rpcpassword=bitcoin
+      - -txindex=1
+      - -zmqpubrawblock=tcp://0.0.0.0:28332
+      - -zmqpubrawtx=tcp://0.0.0.0:28333
+      - -fallbackfee=0.0001
+      - -listen=1
+      - -dnsseed=0
+      - -upnp=0
+      - -printtoconsole
+
+  lnd:
+    image: lightninglabs/lnd:v0.17.0-beta
+    container_name: lnd
+    restart: unless-stopped
+    ports:
+      - "9735:9735"   # p2p
+      - "10009:10009" # RPC
+      - "8080:8080"   # REST
+    volumes:
+      - lnd_data:/root/.lnd
+    depends_on:
+      - bitcoind
+    entrypoint: ["./lnd-entrypoint.sh"]
+    command:
+      - --bitcoin.active
+      - --bitcoin.regtest
+      - --bitcoin.node=bitcoind
+      - --bitcoind.rpchost=bitcoind
+      - --bitcoind.rpcuser=bitcoin
+      - --bitcoind.rpcpass=bitcoin
+      - --bitcoind.zmqpubrawblock=tcp://bitcoind:28332
+      - --bitcoind.zmqpubrawtx=tcp://bitcoind:28333
+      - --debuglevel=info
+      - --rpclisten=0.0.0.0:10009
+      - --restlisten=0.0.0.0:8080
+      - --listen=0.0.0.0:9735
+      - --tlsextraip=0.0.0.0
+      - --noseedbackup
+      - --alias=my-lightning-node
+    volumes:
+      - type: bind
+        source: ./lnd-entrypoint.sh
+        target: /lnd-entrypoint.sh
+        read_only: true
+
+  lnbits:
+    image: lnbitsdocker/lnbits:latest
+    container_name: lnbits
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - LNBITS_BACKEND_WALLET_CLASS=LndWallet
+      - LND_REST_ENDPOINT=https://lnd:8080
+      - LND_REST_CERT=/root/.lnd/tls.cert
+      - LND_REST_MACAROON=/root/.lnd/data/chain/bitcoin/regtest/admin.macaroon
+    volumes:
+      - lnd_data:/root/.lnd:ro
+    depends_on:
+      - lnd
+
+  lightning-terminal:
+    image: lightninglabs/lightning-terminal:v0.11.1-alpha
+    container_name: lit
+    restart: unless-stopped
+    ports:
+      - "8443:8443" # web UI
+    depends_on:
+      - lnd
+    volumes:
+      - lnd_data:/root/.lnd:ro
+      - lit_data:/root/.lit
+    command:
+      - --lnd.host=lnd:10009
+      - --uipassword=password
+
+volumes:
+  bitcoin_data:
+  lnd_data:
+  lit_data:
