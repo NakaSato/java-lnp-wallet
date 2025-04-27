@@ -1,0 +1,46 @@
+# Stage 1: Builder - compiles the application using Rust Alpine
+FROM rust:1.86-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache musl-dev openssl-dev pkgconfig
+
+# Create a new empty project
+WORKDIR /app
+
+# Copy only the Cargo files first to cache dependencies
+COPY Cargo.toml Cargo.lock ./
+
+# Create a dummy main.rs to build and cache dependencies
+RUN mkdir -p src &&     echo "fn main() {println!(\"Placeholder\")}" > src/main.rs &&     RUSTFLAGS="-C target-cpu=generic -C codegen-units=1" cargo build --release &&     rm -rf src/
+
+# Now, copy the real source code
+COPY . .
+
+# Build the actual application
+RUN RUSTFLAGS="-C target-cpu=generic -C codegen-units=1 -C debuginfo=0 -C opt-level=z -C embed-bitcode=no -C panic=abort -C lto=true"     cargo build --release --no-default-features &&     strip /app/target/release/rust-bitcoin-client
+
+# Stage 2: Runtime - extremely minimal container with just the binary
+FROM alpine:3.19
+
+# Install only the absolute minimum runtime dependencies
+RUN apk add --no-cache ca-certificates libssl3 libcrypto3
+
+# Create a non-root user to run the application
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+WORKDIR /app
+
+# Copy only the compiled binary from the builder stage
+COPY --from=builder /app/target/release/rust-bitcoin-client .
+
+# Set appropriate permissions
+RUN chown appuser:appgroup /app/rust-bitcoin-client &&     chmod +x /app/rust-bitcoin-client
+
+# Switch to non-root user
+USER appuser
+
+# Set environment variables for production use
+ENV RUST_LOG=info
+ENV RUST_BACKTRACE=0
+
+# Run the binary
+ENTRYPOINT ["/app/rust-bitcoin-client"]

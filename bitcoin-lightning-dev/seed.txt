@@ -1,0 +1,24 @@
+!!!YOU MUST WRITE DOWN THIS SEED TO BE ABLE TO RESTORE THE WALLET!!!
+---------------BEGIN LND CIPHER SEED---------------
+ 1. about      2. panic    3. display   4. worth  
+ 5. cost       6. genius   7. wood      8. hip    
+ 9. gorilla   10. spoon   11. notable  12. meat   
+13. crunch    14. shine   15. leisure  16. pear   
+17. rotate    18. naive   19. toss     20. print  
+21. disagree  22. danger  23. pond     24. mandate
+---------------END LND CIPHER SEED-----------------
+about panic display worth cost genius wood hip gorilla spoon notable meat crunch shine leisure pear rotate naive toss print disagree danger pond mandate
+
+rootpass@word << lightning-node
+root@password
+
+
+!!!YOU MUST WRITE DOWN THIS SEED TO BE ABLE TO RESTORE THE WALLET!!!
+---------------BEGIN LND CIPHER SEED---------------
+ 1. abandon    2. ordinary   3. copper     4. middle  
+ 5. usual      6. top        7. sorry      8. mail    
+ 9. sweet     10. life      11. phrase    12. juice   
+13. toward    14. slush     15. mention   16. category
+17. question  18. day       19. talent    20. force   
+21. garage    22. possible  23. increase  24. cute    
+---------------END LND CIPHER SEED-----------------

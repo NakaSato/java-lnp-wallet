@@ -1,0 +1,76 @@
+version: "3.8"
+
+services:
+  bitcoin:
+    image: ruimarinho/bitcoin-core:latest
+    container_name: bitcoin-node
+    ports:
+      - "8332:8332"
+    volumes:
+      - ./data/bitcoin:/home/bitcoin/.bitcoin
+      - ./logs/bitcoin:/home/bitcoin/logs
+    environment:
+      - BITCOIN_RPCUSER=${BITCOIN_RPC_USER}
+      - BITCOIN_RPCPASSWORD=${BITCOIN_RPC_PASSWORD}
+      - BITCOIN_NETWORK=${BITCOIN_NETWORK}
+      - BITCOIN_EXTRA_ARGS=-txindex=1
+    restart: unless-stopped
+
+  lightning:
+    image: lightninglabs/lnd:v0.19.0-beta.rc3
+    container_name: lightning-node
+    ports:
+      - "9735:9735" # p2p
+      - "10009:10009" # rpc
+      - "8080:8080" # rest
+    volumes:
+      - ./data/lightning:/root/.lnd
+      - ./logs/lightning:/root/logs
+    command: >
+      --bitcoin.active
+      --bitcoin.regtest
+      --bitcoin.node=bitcoind
+      --bitcoind.rpchost=bitcoin
+      --bitcoind.rpcuser=lnbhokycfu
+      --bitcoind.rpcpass=2.%cr.3,ck\\UDiUtqjad[afR
+      --bitcoind.zmqpubrawblock=tcp://bitcoin:28332
+      --bitcoind.zmqpubrawtx=tcp://bitcoin:28333
+      --debuglevel=debug
+    depends_on:
+      - bitcoin
+    restart: unless-stopped
+
+  rust-dev:
+    # Using a custom Dockerfile instead of directly using rust:alpine
+    build:
+      context: ./rust-bitcoin-client
+      dockerfile: Dockerfile
+    container_name: bitcoin-rust-dev
+    volumes:
+      - ./rust-bitcoin-client:/app
+      - rust_cargo_cache:/usr/local/cargo/registry # Cache Cargo registry
+      - rust_target_cache:/app/target # Cache build artifacts
+    working_dir: /app
+    environment:
+      - BITCOIN_RPC_USER=${BITCOIN_RPC_USER}
+      - BITCOIN_RPC_PASSWORD=${BITCOIN_RPC_PASSWORD}
+      - BITCOIN_RPC_HOST=bitcoin
+      - LIGHTNING_RPC_HOST=lightning
+      - RUST_BACKTRACE=0 # Disable backtrace to save memory
+      - CARGO_HOME=/usr/local/cargo
+      # Significantly optimized for low memory usage during compilation
+      - RUSTFLAGS="-C target-cpu=generic -C codegen-units=1 -C debuginfo=0 -C opt-level=0 -C embed-bitcode=no"
+      - CARGO_BUILD_JOBS=1 # Single-threaded compilation to minimize memory usage
+      - CARGO_INCREMENTAL=0 # Disable incremental compilation to reduce memory overhead
+      - CARGO_NET_RETRY=2 # Fewer retries to reduce memory usage when fetching dependencies
+      - CARGO_PROFILE_DEV_DEBUG=0 # Disable debug info for dev builds
+      - RUST_MIN_STACK=4194304 # Limit stack size to 4MB
+    depends_on:
+      - bitcoin
+      - lightning
+
+volumes:
+  bitcoin_data:
+  lightning_data:
+  rust_cargo_cache: # Persistent volume for Cargo registry
+  rust_target_cache: # Persistent volume for build artifacts
