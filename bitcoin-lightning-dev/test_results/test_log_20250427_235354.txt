@@ -1,0 +1,55 @@
+==== Bitcoin & Lightning Network Test Script ====
+Test started at: Sun Apr 27 23:53:55 +07 2025
+
+
+[1;33m===== Testing Bitcoin Node =====[0m
+Checking if Bitcoin node container is running...
+[0;32m[PASS][0m Bitcoin node is running
+Testing Bitcoin RPC connection...
+[0;32m[PASS][0m Bitcoin RPC connection test
+Getting blockchain info...
+[0;32m[PASS][0m Saving blockchain info
+Checking Bitcoin wallet...
+[0;32m[PASS][0m Bitcoin wallet 'regtest_wallet' exists
+Checking wallet balance...
+Current wallet balance: 50.00000000 BTC
+
+[1;33m===== Testing Lightning Node =====[0m
+Checking if Lightning node container is running...
+[0;32m[PASS][0m Lightning node is running
+Testing Lightning wallet status...
+[0;31m[FAIL][0m Lightning wallet is already unlocked
+Getting Lightning node info...
+[0;32m[PASS][0m Saving Lightning node info
+Checking Lightning wallet balance...
+[0;32m[PASS][0m Getting Lightning wallet balance
+Lightning wallet balance:  sats
+
+[1;33m===== Funding Lightning Wallet =====[0m
+Lightning wallet already has funds, skipping funding step.
+
+[1;33m===== Creating a Test Lightning Channel =====[0m
+Checking for test partner Lightning node...
+Creating a test partner Lightning node...
+This would create another Lightning node for testing channels.
+In a production environment, you would connect to real Lightning nodes.
+Skipping actual creation of test node for now.
+Main Lightning node pubkey: 
+
+[1;33m===== Testing Lightning Network Functionality =====[0m
+Listing open channels...
+[0;32m[PASS][0m Listing Lightning channels
+Listing pending channels...
+[0;32m[PASS][0m Listing pending Lightning channels
+Listing peers...
+[0;32m[PASS][0m Listing Lightning peers
+
+[1;33m===== Test Summary =====[0m
+Bitcoin node status: Operational
+Lightning node status: Operational
+Bitcoin wallet balance: 50.00000000 BTC
+Lightning wallet balance:  sats
+
+Test completed at: Sun Apr 27 23:53:56 +07 2025
+Test results saved to: ./test_results/test_log_20250427_235354.txt
+==== End of Test Script ====

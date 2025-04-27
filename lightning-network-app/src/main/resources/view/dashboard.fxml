@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.lightning.ui.DashboardController"
+            prefHeight="600.0" prefWidth="900.0"
+            styleClass="dashboard">
+    
+    <top>
+        <HBox styleClass="header-bar" alignment="CENTER_LEFT" spacing="10">
+            <padding>
+                <Insets top="10" right="15" bottom="10" left="15"/>
+            </padding>
+            <Label text="Lightning Network Wallet" styleClass="app-title"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button onAction="#refreshNodeInfo" text="Refresh" styleClass="action-button"/>
+            <Button onAction="#generateNewAddress" text="Deposit BTC" styleClass="action-button"/>
+        </HBox>
+    </top>
+    
+    <left>
+        <VBox styleClass="sidebar" prefWidth="220">
+            <padding>
+                <Insets top="15" right="10" bottom="15" left="10"/>
+            </padding>
+            
+            <TitledPane text="Node Info" expanded="true" styleClass="info-section">
+                <VBox spacing="8">
+                    <HBox styleClass="info-item">
+                        <Label text="Node ID:" styleClass="info-label"/>
+                        <Label fx:id="nodeIdLabel" text="Unknown" styleClass="info-value" 
+                               maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                    </HBox>
+                    <HBox styleClass="info-item">
+                        <Label text="Alias:" styleClass="info-label"/>
+                        <Label fx:id="nodeAliasLabel" text="Unknown" styleClass="info-value" 
+                               maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                    </HBox>
+                    <HBox styleClass="info-item">
+                        <Label text="Channels:" styleClass="info-label"/>
+                        <Label fx:id="channelsLabel" text="0" styleClass="info-value" 
+                               maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                    </HBox>
+                    <HBox styleClass="info-item">
+                        <Label text="Pending:" styleClass="info-label"/>
+                        <Label fx:id="pendingChannelsLabel" text="0" styleClass="info-value" 
+                               maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                    </HBox>
+                    <HBox styleClass="info-item">
+                        <Label text="Peers:" styleClass="info-label"/>
+                        <Label fx:id="peersLabel" text="0" styleClass="info-value" 
+                               maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                    </HBox>
+                    <HBox styleClass="info-item">
+                        <Label text="Block Height:" styleClass="info-label"/>
+                        <Label fx:id="blockHeightLabel" text="0" styleClass="info-value" 
+                               maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                    </HBox>
+                    <HBox styleClass="info-item">
+                        <Label text="Status:" styleClass="info-label"/>
+                        <Label fx:id="syncStatusLabel" text="Unknown" styleClass="info-value" 
+                               maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                    </HBox>
+                </VBox>
+            </TitledPane>
+            
+            <TitledPane text="Wallet Balance" expanded="true" styleClass="info-section">
+                <VBox spacing="8">
+                    <HBox styleClass="info-item">
+                        <Label text="Total:" styleClass="info-label"/>
+                        <Label fx:id="walletBalanceLabel" text="0.00000000 BTC" styleClass="info-value" 
+                               maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                    </HBox>
+                    <HBox styleClass="info-item">
+                        <Label text="Confirmed:" styleClass="info-label"/>
+                        <Label fx:id="confirmedBalanceLabel" text="0.00000000 BTC" styleClass="info-value" 
+                               maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                    </HBox>
+                    <HBox styleClass="info-item">
+                        <Label text="Unconfirmed:" styleClass="info-label"/>
+                        <Label fx:id="unconfirmedBalanceLabel" text="0.00000000 BTC" styleClass="info-value" 
+                               maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                    </HBox>
+                </VBox>
+            </TitledPane>
+        </VBox>
+    </left>
+    
+    <center>
+        <TabPane styleClass="main-tabs">
+            <Tab text="Receive" closable="false">
+                <VBox fx:id="receiveTab" styleClass="content-panel" spacing="15">
+                    <padding>
+                        <Insets top="20" right="20" bottom="20" left="20"/>
+                    </padding>
+                    
+                    <Label text="Create Invoice" styleClass="panel-title"/>
+                    
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Amount (sats):" prefWidth="100"/>
+                        <TextField fx:id="receiveAmountField" promptText="Enter amount in satoshis" prefWidth="200"/>
+                    </HBox>
+                    
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Memo:" prefWidth="100"/>
+                        <TextField fx:id="receiveMemoField" promptText="Optional description" prefWidth="400"/>
+                    </HBox>
+                    
+                    <Button text="Generate Invoice" onAction="#generateInvoice" styleClass="action-button"/>
+                    
+                    <Separator/>
+                    
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Payment Request:"/>
+                        <TextField fx:id="receiveInvoiceField" editable="false" prefWidth="400" 
+                                  promptText="Generated invoice will appear here"/>
+                        <Button text="Copy" onAction="#copyInvoice" styleClass="action-button"/>
+                    </HBox>
+                    
+                    <HBox alignment="CENTER">
+                        <ImageView fx:id="qrCodeImageView" fitHeight="250" fitWidth="250" preserveRatio="true"/>
+                    </HBox>
+                </VBox>
+            </Tab>
+            
+            <Tab text="Pay" closable="false">
+                <VBox fx:id="payTab" styleClass="content-panel" spacing="15">
+                    <padding>
+                        <Insets top="20" right="20" bottom="20" left="20"/>
+                    </padding>
+                    
+                    <Label text="Pay Invoice" styleClass="panel-title"/>
+                    
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Payment Request:" prefWidth="120"/>
+                        <TextField fx:id="payInvoiceField" promptText="Enter Lightning invoice" prefWidth="500"/>
+                    </HBox>
+                    
+                    <Button text="Pay" onAction="#payInvoice" styleClass="action-button"/>
+                    
+                    <Separator/>
+                    
+                    <Label text="How to use:" styleClass="section-header"/>
+                    <Label text="1. Paste a Lightning Network invoice in the field above" wrapText="true"/>
+                    <Label text="2. Click the Pay button to send payment" wrapText="true"/>
+                    <Label text="3. Confirm the payment details in the dialog that appears" wrapText="true"/>
+                </VBox>
+            </Tab>
+            
+            <Tab text="Transactions" closable="false">
+                <VBox fx:id="transactionsTab" styleClass="content-panel" spacing="15">
+                    <padding>
+                        <Insets top="20" right="20" bottom="20" left="20"/>
+                    </padding>
+                    
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Invoice History" styleClass="panel-title"/>
+                        <Region HBox.hgrow="ALWAYS"/>
+                        <Button text="Refresh" onAction="#refreshInvoices" styleClass="action-button"/>
+                    </HBox>
+                    
+                    <TableView fx:id="invoicesTable" VBox.vgrow="ALWAYS">
+                        <columns>
+                            <TableColumn fx:id="memoColumn" text="Memo" prefWidth="300"/>
+                            <TableColumn fx:id="amountColumn" text="Amount" prefWidth="150"/>
+                            <TableColumn fx:id="statusColumn" text="Status" prefWidth="100"/>
+                            <TableColumn fx:id="dateColumn" text="Date" prefWidth="150"/>
+                        </columns>
+                        <placeholder>
+                            <Label text="No invoices found"/>
+                        </placeholder>
+                    </TableView>
+                </VBox>
+            </Tab>
+        </TabPane>
+    </center>
+    
+    <bottom>
+        <HBox styleClass="status-bar" alignment="CENTER_LEFT">
+            <padding>
+                <Insets top="5" right="10" bottom="5" left="10"/>
+            </padding>
+            <Label text="Connected to local Lightning Network node" />
+            <Region HBox.hgrow="ALWAYS"/>
+            <Label text="Last update: " />
+        </HBox>
+    </bottom>
+    
+</BorderPane>

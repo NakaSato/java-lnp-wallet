@@ -1,0 +1,103 @@
+{
+    "version":  "0.19.0-beta.rc3 commit=v0.19.0-beta.rc3",
+    "commit_hash":  "bc4229b32e275354ffcd810bcb31c08b50608ec7",
+    "identity_pubkey":  "03a5052b6713d237448caecbe5ae84a9d4eb275ceabc453b67d54cbc925ea5bcf7",
+    "alias":  "03a5052b6713d237448c",
+    "color":  "#3399ff",
+    "num_pending_channels":  0,
+    "num_active_channels":  0,
+    "num_inactive_channels":  0,
+    "num_peers":  0,
+    "block_height":  101,
+    "block_hash":  "4a977dd1f8d9a2a2991888bc04edc39c00fec6003687f0d2d4a7c4d22748b5f4",
+    "best_header_timestamp":  "1745772114",
+    "synced_to_chain":  true,
+    "synced_to_graph":  false,
+    "testnet":  false,
+    "chains":  [
+        {
+            "chain":  "bitcoin",
+            "network":  "regtest"
+        }
+    ],
+    "uris":  [],
+    "features":  {
+        "0":  {
+            "name":  "data-loss-protect",
+            "is_required":  true,
+            "is_known":  true
+        },
+        "5":  {
+            "name":  "upfront-shutdown-script",
+            "is_required":  false,
+            "is_known":  true
+        },
+        "7":  {
+            "name":  "gossip-queries",
+            "is_required":  false,
+            "is_known":  true
+        },
+        "8":  {
+            "name":  "tlv-onion",
+            "is_required":  true,
+            "is_known":  true
+        },
+        "12":  {
+            "name":  "static-remote-key",
+            "is_required":  true,
+            "is_known":  true
+        },
+        "14":  {
+            "name":  "payment-addr",
+            "is_required":  true,
+            "is_known":  true
+        },
+        "17":  {
+            "name":  "multi-path-payments",
+            "is_required":  false,
+            "is_known":  true
+        },
+        "23":  {
+            "name":  "anchors-zero-fee-htlc-tx",
+            "is_required":  false,
+            "is_known":  true
+        },
+        "25":  {
+            "name":  "route-blinding",
+            "is_required":  false,
+            "is_known":  true
+        },
+        "27":  {
+            "name":  "shutdown-any-segwit",
+            "is_required":  false,
+            "is_known":  true
+        },
+        "30":  {
+            "name":  "amp",
+            "is_required":  true,
+            "is_known":  true
+        },
+        "31":  {
+            "name":  "amp",
+            "is_required":  false,
+            "is_known":  true
+        },
+        "45":  {
+            "name":  "explicit-commitment-type",
+            "is_required":  false,
+            "is_known":  true
+        },
+        "261":  {
+            "name":  "endorsement-x",
+            "is_required":  false,
+            "is_known":  true
+        },
+        "2023":  {
+            "name":  "script-enforced-lease",
+            "is_required":  false,
+            "is_known":  true
+        }
+    },
+    "require_htlc_interceptor":  false,
+    "store_final_htlc_resolutions":  false
+}

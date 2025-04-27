@@ -1,0 +1,5 @@
+This is a placeholder for a lightning icon image.
+You should replace this with an actual PNG image file.
+
+The icon should be approximately 64x64 pixels and represent a lightning bolt symbol.
+This file is referenced in the App.java class when setting the application icon.
