@@ -319,54 +319,106 @@ public class DashboardPanel extends JPanel {
         connectionStatusLabel.setText("Connecting...");
         connectionStatusLabel.setForeground(Color.BLUE);
         
-        SwingWorker<Boolean, Void> worker = new SwingWorker<>() {
+        SwingWorker<ConnectionResult, Void> worker = new SwingWorker<>() {
             @Override
-            protected Boolean doInBackground() throws Exception {
+            protected ConnectionResult doInBackground() throws Exception {
+                ConnectionResult result = new ConnectionResult();
+                
                 try {
-                    return lightningService.connect();
+                    // First try regular connection
+                    boolean connected = lightningService.connect();
+                    if (connected) {
+                        result.success = true;
+                        return result;
+                    }
+                    
+                    // If that fails, get detailed diagnostics
+                    result.diagnostics = lightningService.connectionDiagnostics();
+                    
+                    // Try auto-fixing the connection
+                    boolean autoFixed = lightningService.autoFixConnection();
+                    if (autoFixed) {
+                        result.success = true;
+                        result.wasAutoFixed = true;
+                        return result;
+                    }
+                    
+                    // Check if the issue is due to node synchronization
+                    if (result.diagnostics != null && 
+                        result.diagnostics.contains("Block height out of range") || 
+                        result.diagnostics.contains("Unable to synchronize wallet")) {
+                        result.isSyncIssue = true;
+                    }
+                    
                 } catch (Exception e) {
                     LOGGER.log(Level.SEVERE, "Error connecting to node", e);
-                    return false;
+                    result.errorMessage = e.getMessage();
+                    
+                    // Check for common error patterns
+                    if (e.getMessage() != null) {
+                        if (e.getMessage().contains("Connection reset")) {
+                            result.isConnectionReset = true;
+                        } else if (e.getMessage().contains("sync") || e.getMessage().contains("height")) {
+                            result.isSyncIssue = true;
+                        }
+                    }
                 }
+                
+                return result;
             }
             
             @Override
             protected void done() {
                 try {
-                    boolean success = get();
-                    if (success) {
-                        JOptionPane.showMessageDialog(
-                            DashboardPanel.this,
-                            "Successfully connected to Lightning Network node.",
-                            "Connection Successful",
-                            JOptionPane.INFORMATION_MESSAGE
-                        );
-                        // Refresh data now that we're connected
-                        refreshData();
-                    } else {
-                        // Try auto-fixing the connection
-                        boolean autoFixed = lightningService.autoFixConnection();
-                        if (autoFixed) {
+                    ConnectionResult result = get();
+                    
+                    if (result.success) {
+                        if (result.wasAutoFixed) {
                             JOptionPane.showMessageDialog(
                                 DashboardPanel.this,
                                 "Auto-fixed connection to Lightning Network node.",
                                 "Connection Fixed",
                                 JOptionPane.INFORMATION_MESSAGE
                             );
-                            // Refresh data with the fixed connection
-                            refreshData();
                         } else {
                             JOptionPane.showMessageDialog(
                                 DashboardPanel.this,
-                                "Failed to connect to Lightning Network node.\n" +
-                                "Please check your settings and ensure the node is running.",
-                                "Connection Failed",
-                                JOptionPane.ERROR_MESSAGE
+                                "Successfully connected to Lightning Network node.",
+                                "Connection Successful",
+                                JOptionPane.INFORMATION_MESSAGE
                             );
-                            connectionStatusLabel.setText("Disconnected");
-                            connectionStatusLabel.setForeground(Color.RED);
-                            connectButton.setEnabled(true);
                         }
+                        // Refresh data now that we're connected
+                        refreshData();
+                    } else {
+                        String message;
+                        
+                        if (result.isSyncIssue) {
+                            message = "The Lightning node is running but not fully synchronized with the Bitcoin blockchain.\n\n" +
+                                     "This is a common cause of connection issues and may resolve itself once the node completes syncing.\n\n" +
+                                     "You can still use the application in offline mode with previously cached data.";
+                        } else if (result.isConnectionReset) {
+                            message = "Connection reset by the Lightning node.\n\n" +
+                                     "This often happens when the node is still starting up or synchronizing with the blockchain.\n" +
+                                     "Please wait a few minutes and try again.";
+                        } else {
+                            message = "Failed to connect to Lightning Network node.\n" +
+                                     "Please check your settings and ensure the node is running.";
+                            
+                            if (result.errorMessage != null) {
+                                message += "\n\nError details: " + result.errorMessage;
+                            }
+                        }
+                        
+                        JOptionPane.showMessageDialog(
+                            DashboardPanel.this,
+                            message,
+                            "Connection Failed",
+                            JOptionPane.ERROR_MESSAGE
+                        );
+                        
+                        connectionStatusLabel.setText("Disconnected");
+                        connectionStatusLabel.setForeground(Color.RED);
                     }
                 } catch (Exception e) {
                     LOGGER.log(Level.SEVERE, "Error in connection process", e);
@@ -378,6 +430,8 @@ public class DashboardPanel extends JPanel {
                     );
                     connectionStatusLabel.setText("Error");
                     connectionStatusLabel.setForeground(Color.RED);
+                } finally {
+                    // Always enable the button again so user can retry
                     connectButton.setEnabled(true);
                 }
             }
@@ -392,5 +446,17 @@ public class DashboardPanel extends JPanel {
     private static class DashboardData {
         private LightningInfo lightningInfo;
         private WalletBalance walletBalance;
+    }
+    
+    /**
+     * Helper class to track connection results
+     */
+    private static class ConnectionResult {
+        boolean success = false;
+        boolean wasAutoFixed = false;
+        boolean isSyncIssue = false;
+        boolean isConnectionReset = false;
+        String errorMessage = null;
+        String diagnostics = null;
     }
 }

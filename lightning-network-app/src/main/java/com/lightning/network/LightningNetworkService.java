@@ -59,8 +59,10 @@ public class LightningNetworkService {
      * Initialize or reinitialize the connection with current properties
      */
     public void initializeConnection() {
-        String host = configProps.getProperty("host", "localhost");
-        String port = configProps.getProperty("port", "8080");
+        // Use Docker-friendly connection settings by default (for development)
+        // Changed to use 10009 port (gRPC) instead of 8080 (REST) because gRPC is the primary interface for LND
+        String host = configProps.getProperty("host", "127.0.0.1"); // Use 127.0.0.1 instead of localhost
+        String port = configProps.getProperty("port", "10009"); // Use gRPC port 10009 instead of REST port 8080
         String tlsCertPath = configProps.getProperty("tls.cert.path", "");
         
         // Try HTTPS first
@@ -114,73 +116,37 @@ public class LightningNetworkService {
                 }
             }
             
-            if (certPath == null || certPath.isEmpty() || !Files.exists(Path.of(certPath))) {
-                // If we still don't have a valid cert path, try to trust all certificates (for development only)
-                LOGGER.warning("No valid TLS certificate found. Using insecure TLS configuration.");
-                
-                final TrustManager[] trustAllCerts = new TrustManager[]{
-                        new X509TrustManager() {
-                            @Override
-                            public void checkClientTrusted(X509Certificate[] chain, String authType) {
-                            }
-                            
-                            @Override
-                            public void checkServerTrusted(X509Certificate[] chain, String authType) {
-                            }
-                            
-                            @Override
-                            public X509Certificate[] getAcceptedIssuers() {
-                                return new X509Certificate[]{};
-                            }
+            // Always use trust all certificates for Docker development environment
+            // This is needed because the certificate in Docker may not match the hostname
+            LOGGER.info("Using development-mode TLS configuration with all-trusting trust manager");
+            
+            final TrustManager[] trustAllCerts = new TrustManager[]{
+                    new X509TrustManager() {
+                        @Override
+                        public void checkClientTrusted(X509Certificate[] chain, String authType) {
                         }
-                };
-                
-                // Install the all-trusting trust manager with supported protocols
-                final SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
-                sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
-                
-                // Create an ssl socket factory with our all-trusting manager
-                final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
-                
-                builder.sslSocketFactory(sslSocketFactory, (X509TrustManager) trustAllCerts[0])
-                       .hostnameVerifier((hostname, session) -> true);
-                
-                LOGGER.warning("Using insecure TLS configuration (trust all certificates). Do not use in production!");
-            } else {
-                // Use provided certificate
-                try {
-                    CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
-                    Certificate certificate;
-                    
-                    try (InputStream certificateInputStream = new FileInputStream(certPath)) {
-                        certificate = certificateFactory.generateCertificate(certificateInputStream);
-                        LOGGER.info("Loaded certificate from: " + certPath);
+                        
+                        @Override
+                        public void checkServerTrusted(X509Certificate[] chain, String authType) {
+                        }
+                        
+                        @Override
+                        public X509Certificate[] getAcceptedIssuers() {
+                            return new X509Certificate[]{};
+                        }
                     }
-                    
-                    // Create a KeyStore containing our trusted certificates
-                    KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-                    keyStore.load(null, null);
-                    keyStore.setCertificateEntry("lnd", certificate);
-                    
-                    // Create a TrustManager that trusts the CAs in our KeyStore
-                    TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(
-                            TrustManagerFactory.getDefaultAlgorithm());
-                    trustManagerFactory.init(keyStore);
-                    TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
-                    
-                    // Create an SSLContext that uses our TrustManager with TLS 1.2
-                    SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
-                    sslContext.init(null, trustManagers, null);
-                    
-                    builder.sslSocketFactory(sslContext.getSocketFactory(), (X509TrustManager) trustManagers[0])
-                           .hostnameVerifier((hostname, session) -> true); // Ignore hostname verification for localhost
-                    
-                    LOGGER.info("TLS configured with certificate: " + certPath);
-                } catch (Exception e) {
-                    LOGGER.log(Level.SEVERE, "Failed to load TLS certificate from: " + certPath, e);
-                    return false;
-                }
-            }
+            };
+            
+            // Install the all-trusting trust manager with supported protocols
+            final SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
+            
+            // Create an ssl socket factory with our all-trusting manager
+            final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
+            
+            builder.sslSocketFactory(sslSocketFactory, (X509TrustManager) trustAllCerts[0])
+                   .hostnameVerifier((hostname, session) -> true);
+            
             return true;
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Failed to set up TLS configuration", e);
@@ -873,6 +839,18 @@ public class LightningNetworkService {
         boolean basicConnectivity = isNodeRunning(host, port, 2000);
         diagnostics.append("Basic Connectivity: ").append(basicConnectivity ? "SUCCESS" : "FAILED").append("\n");
         
+        // Check Bitcoin node status
+        diagnostics.append("Checking Bitcoin Node...\n");
+        boolean bitcoinNodeRunning = false;
+        try {
+            // Try to check if Bitcoin node is running on default port
+            int bitcoinPort = 8332; // Default for Bitcoin Core RPC
+            bitcoinNodeRunning = isNodeRunning(host, bitcoinPort, 1000);
+            diagnostics.append("Bitcoin Node Reachable: ").append(bitcoinNodeRunning ? "YES" : "NO").append("\n");
+        } catch (Exception e) {
+            diagnostics.append("Error checking Bitcoin node: ").append(e.getMessage()).append("\n");
+        }
+        
         // If basic connectivity fails, try to discover port
         if (!basicConnectivity) {
             diagnostics.append("Attempting port discovery...\n");
@@ -907,10 +885,49 @@ public class LightningNetworkService {
                 diagnostics.append("API Test: SUCCESS\n");
                 diagnostics.append("Node Alias: ").append(info.getAlias()).append("\n");
                 diagnostics.append("Pubkey: ").append(info.getIdentityPubkey()).append("\n");
+                diagnostics.append("Synced to Chain: ").append(info.isSyncedToChain() ? "YES" : "NO").append("\n");
+                diagnostics.append("Block Height: ").append(info.getBlockHeight()).append("\n");
             } catch (Exception e) {
                 diagnostics.append("API Test: FAILED\n");
                 diagnostics.append("Error: ").append(e.getMessage()).append("\n");
-                diagnostics.append("Recommendation: Lightning node may be running but API access is restricted\n");
+                
+                // Check for sync issues in the error message
+                if (e.getMessage() != null && 
+                    (e.getMessage().contains("Connection reset") || 
+                     e.getMessage().contains("sync") ||
+                     e.getMessage().contains("height") ||
+                     e.getMessage().contains("Block height out of range"))) {
+                    
+                    diagnostics.append("\nPossible Synchronization Issue Detected:\n");
+                    diagnostics.append("The Lightning node appears to be running but might be synchronizing with the Bitcoin blockchain.\n");
+                    diagnostics.append("This process can take some time and may cause connection resets or API failures.\n");
+                    diagnostics.append("Recommendation: Wait for the node to fully synchronize and try again later.\n");
+                    
+                    // Check logs if possible
+                    try {
+                        String homeDir = System.getProperty("user.home");
+                        Path logPath = Path.of(homeDir, "Developments", "java-dev", "java-lnp-wallet", 
+                                "bitcoin-lightning-dev", "logs", "lightning", "lightning.log");
+                        
+                        if (Files.exists(logPath)) {
+                            diagnostics.append("\nChecking Lightning node logs...\n");
+                            List<String> logLines = Files.readAllLines(logPath);
+                            
+                            // Get the last few lines that might contain sync info
+                            int startIndex = Math.max(0, logLines.size() - 10);
+                            for (int i = startIndex; i < logLines.size(); i++) {
+                                String line = logLines.get(i);
+                                if (line.contains("sync") || line.contains("chain") || line.contains("block")) {
+                                    diagnostics.append("Log: ").append(line).append("\n");
+                                }
+                            }
+                        }
+                    } catch (Exception logEx) {
+                        // Ignore log reading errors
+                    }
+                } else {
+                    diagnostics.append("Recommendation: Lightning node may be running but API access is restricted\n");
+                }
             }
         }
         

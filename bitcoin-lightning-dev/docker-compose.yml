@@ -22,7 +22,6 @@ services:
     ports:
       - "9735:9735" # p2p
       - "10009:10009" # rpc
-      - "8080:8080" # rest
     volumes:
       - ./data/lightning:/root/.lnd
       - ./logs/lightning:/root/logs
@@ -35,9 +34,32 @@ services:
       --bitcoind.rpcpass=2.%cr.3,ck\\UDiUtqjad[afR
       --bitcoind.zmqpubrawblock=tcp://bitcoin:28332
       --bitcoind.zmqpubrawtx=tcp://bitcoin:28333
+      --rpclisten=127.0.0.1:10009
+      --restlisten=127.0.0.1:8080
+      --tlsextraip=0.0.0.0
+      --tlsextradomain=lightning-node
+      --tlsextradomain=localhost
+      --tlsextradomain=host.docker.internal
+      --adminmacaroonpath=/root/.lnd/admin.macaroon
+      --readonlymacaroonpath=/root/.lnd/readonly.macaroon
+      --invoicemacaroonpath=/root/.lnd/invoice.macaroon
+      --noseedbackup
+      --accept-keysend
+      --allow-circular-route
       --debuglevel=debug
     depends_on:
       - bitcoin
+    restart: unless-stopped
+
+  lnd-proxy:
+    image: nginx:alpine
+    container_name: lnd-proxy
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - lightning
     restart: unless-stopped
 
   rust-dev:
