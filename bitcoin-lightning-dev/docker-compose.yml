@@ -21,7 +21,6 @@ services:
     container_name: lightning-node
     ports:
       - "9735:9735" # p2p
-      - "10009:10009" # rpc
     volumes:
       - ./data/lightning:/root/.lnd
       - ./logs/lightning:/root/logs
@@ -36,13 +35,6 @@ services:
       --bitcoind.zmqpubrawtx=tcp://bitcoin:28333
       --rpclisten=127.0.0.1:10009
       --restlisten=127.0.0.1:8080
-      --tlsextraip=0.0.0.0
-      --tlsextradomain=lightning-node
-      --tlsextradomain=localhost
-      --tlsextradomain=host.docker.internal
-      --adminmacaroonpath=/root/.lnd/admin.macaroon
-      --readonlymacaroonpath=/root/.lnd/readonly.macaroon
-      --invoicemacaroonpath=/root/.lnd/invoice.macaroon
       --noseedbackup
       --accept-keysend
       --allow-circular-route
@@ -51,11 +43,11 @@ services:
       - bitcoin
     restart: unless-stopped
 
-  lnd-proxy:
+  nginx:
     image: nginx:alpine
     container_name: lnd-proxy
     ports:
-      - "8080:80"
+      - "8080:80" # Map container port 80 to host port 8080
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
     depends_on:
