@@ -6,21 +6,27 @@ services:
     container_name: bitcoin-node
     ports:
       - "8332:8332"
+      - "18443:18443" # Make sure regtest RPC port is exposed
+      - "28332:28332" # ZMQ ports
+      - "28333:28333"
     volumes:
       - ./data/bitcoin:/home/bitcoin/.bitcoin
       - ./logs/bitcoin:/home/bitcoin/logs
     environment:
-      - BITCOIN_RPCUSER=${BITCOIN_RPC_USER}
-      - BITCOIN_RPCPASSWORD=${BITCOIN_RPC_PASSWORD}
-      - BITCOIN_NETWORK=${BITCOIN_NETWORK}
-      - BITCOIN_EXTRA_ARGS=-txindex=1
+      - BITCOIN_RPCUSER=${BITCOIN_RPC_USER:-lnbhokycfu}
+      - BITCOIN_RPCPASSWORD=${BITCOIN_RPC_PASSWORD:-2.%cr.3,ck\\UDiUtqjad[afR}
+      - BITCOIN_NETWORK=${BITCOIN_NETWORK:-regtest}
+      - BITCOIN_EXTRA_ARGS=-txindex=1 -rpcallowip=0.0.0.0/0 -rpcbind=0.0.0.0 -zmqpubrawblock=tcp://0.0.0.0:28332 -zmqpubrawtx=tcp://0.0.0.0:28333 -debug=1 -server=1
     restart: unless-stopped
+    networks:
+      - lightning-network
 
   lightning:
     image: lightninglabs/lnd:v0.19.0-beta.rc3
     container_name: lightning-node
     ports:
       - "9735:9735" # p2p
+      - "10009:10009" # RPC port
     volumes:
       - ./data/lightning:/root/.lnd
       - ./logs/lightning:/root/logs
@@ -28,20 +34,26 @@ services:
       --bitcoin.active
       --bitcoin.regtest
       --bitcoin.node=bitcoind
-      --bitcoind.rpchost=bitcoin
+      --bitcoind.rpchost=bitcoin:18443
       --bitcoind.rpcuser=lnbhokycfu
       --bitcoind.rpcpass=2.%cr.3,ck\\UDiUtqjad[afR
       --bitcoind.zmqpubrawblock=tcp://bitcoin:28332
       --bitcoind.zmqpubrawtx=tcp://bitcoin:28333
-      --rpclisten=127.0.0.1:10009
-      --restlisten=127.0.0.1:8080
+      --rpclisten=0.0.0.0:10009
+      --restlisten=0.0.0.0:8080
       --noseedbackup
       --accept-keysend
       --allow-circular-route
+      --tlsextraip=0.0.0.0
+      --tlsextradomain=lightning-node
+      --tlsautorefresh
+      --no-rest-tls
       --debuglevel=debug
     depends_on:
       - bitcoin
     restart: unless-stopped
+    networks:
+      - lightning-network
 
   nginx:
     image: nginx:alpine
@@ -53,6 +65,8 @@ services:
     depends_on:
       - lightning
     restart: unless-stopped
+    networks:
+      - lightning-network
 
   rust-dev:
     # Using a custom Dockerfile instead of directly using rust:alpine
@@ -66,8 +80,8 @@ services:
       - rust_target_cache:/app/target # Cache build artifacts
     working_dir: /app
     environment:
-      - BITCOIN_RPC_USER=${BITCOIN_RPC_USER}
-      - BITCOIN_RPC_PASSWORD=${BITCOIN_RPC_PASSWORD}
+      - BITCOIN_RPC_USER=${BITCOIN_RPC_USER:-lnbhokycfu}
+      - BITCOIN_RPC_PASSWORD=${BITCOIN_RPC_PASSWORD:-2.%cr.3,ck\\UDiUtqjad[afR}
       - BITCOIN_RPC_HOST=bitcoin
       - LIGHTNING_RPC_HOST=lightning
       - RUST_BACKTRACE=0 # Disable backtrace to save memory
@@ -82,6 +96,12 @@ services:
     depends_on:
       - bitcoin
       - lightning
+    networks:
+      - lightning-network
+
+networks:
+  lightning-network:
+    driver: bridge
 
 volumes:
   bitcoin_data:

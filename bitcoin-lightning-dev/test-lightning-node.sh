@@ -54,42 +54,56 @@ fi
 
 # Test Bitcoin RPC connection
 echo "Testing Bitcoin RPC connection..." | tee -a $TEST_LOG
-BITCOIN_INFO=$(docker exec -it bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" getblockchaininfo)
+BITCOIN_INFO=$(docker exec bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" getblockchaininfo)
 check_result "Bitcoin RPC connection test"
 
 # Get blockchain info and save it
 echo "Getting blockchain info..." | tee -a $TEST_LOG
-docker exec -it bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" getblockchaininfo > $RESULTS_DIR/blockchain_info.json
+docker exec bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" getblockchaininfo > $RESULTS_DIR/blockchain_info.json
 check_result "Saving blockchain info"
 
 # Check if wallet exists, create if it doesn't
 echo "Checking Bitcoin wallet..." | tee -a $TEST_LOG
-WALLET_LIST=$(docker exec -it bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" listwallets)
+WALLET_LIST=$(docker exec bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" listwallets)
+
 if [[ $WALLET_LIST == *"regtest_wallet"* ]]; then
     check_result "Bitcoin wallet 'regtest_wallet' exists"
-    docker exec -it bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" loadwallet "regtest_wallet" 2>/dev/null
+    echo "Loading wallet 'regtest_wallet'..." | tee -a $TEST_LOG
+    LOAD_RESULT=$(docker exec bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" loadwallet "regtest_wallet" 2>&1)
+    if [[ $LOAD_RESULT == *"already loaded"* ]]; then
+        check_result "Wallet 'regtest_wallet' is already loaded"
+    else
+        check_result "Loading wallet 'regtest_wallet'"
+    fi
 else
     echo "Creating Bitcoin wallet 'regtest_wallet'..." | tee -a $TEST_LOG
-    docker exec -it bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" createwallet "regtest_wallet"
-    check_result "Creating Bitcoin wallet 'regtest_wallet'"
+    CREATE_RESULT=$(docker exec bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" createwallet "regtest_wallet" 2>&1)
+    if [[ $CREATE_RESULT == *"Created"* ]]; then
+        check_result "Creating Bitcoin wallet 'regtest_wallet'"
+    else
+        check_result "Failed to create wallet: $CREATE_RESULT"
+        # Try to load default wallet as fallback
+        echo "Attempting to use default wallet..." | tee -a $TEST_LOG
+        docker exec bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" loadwallet ""
+    fi
 fi
 
 # Check wallet balance
 echo "Checking wallet balance..." | tee -a $TEST_LOG
-BALANCE=$(docker exec -it bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" getbalance)
+BALANCE=$(docker exec bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" getbalance)
 echo "Current wallet balance: $BALANCE BTC" | tee -a $TEST_LOG
 
 # Mine some blocks if balance is low
 if (( $(echo "$BALANCE < 1" | bc -l) )); then
     echo "Balance is low, mining some blocks..." | tee -a $TEST_LOG
     # Generate a new address
-    MINING_ADDRESS=$(docker exec -it bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" getnewaddress)
+    MINING_ADDRESS=$(docker exec bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" getnewaddress)
     # Mine 101 blocks to make coinbase spendable
-    docker exec -it bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" generatetoaddress 101 "$MINING_ADDRESS" > /dev/null
+    docker exec bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" generatetoaddress 101 "$MINING_ADDRESS" > /dev/null
     check_result "Mining 101 blocks to address $MINING_ADDRESS"
     
     # Check new balance
-    NEW_BALANCE=$(docker exec -it bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" getbalance)
+    NEW_BALANCE=$(docker exec bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" getbalance)
     echo "New wallet balance: $NEW_BALANCE BTC" | tee -a $TEST_LOG
 fi
 
@@ -111,16 +125,23 @@ fi
 
 # Test if wallet is unlocked or needs unlock
 echo "Testing Lightning wallet status..." | tee -a $TEST_LOG
-WALLET_INFO=$(docker exec -it lightning-node lncli --network=regtest getinfo 2>&1)
+WALLET_INFO=$(docker exec lightning-node lncli --network=regtest getinfo 2>&1)
 
 if [[ $WALLET_INFO == *"wallet is encrypted"* ]]; then
     echo "Lightning wallet is locked. Unlocking..." | tee -a $TEST_LOG
-    # Try to unlock with the known password from seed.txt
-    echo "root@password" | docker exec -i lightning-node lncli --network=regtest unlock
+    # Try to unlock with the known password from seed.txt if available
+    if [ -f "./seed.txt" ]; then
+        PASSWORD=$(head -n 1 seed.txt | tr -d '\n')
+        echo "$PASSWORD" | docker exec -i lightning-node lncli --network=regtest unlock
+    else
+        # Try with the default password
+        echo "root@password" | docker exec -i lightning-node lncli --network=regtest unlock
+    fi
     check_result "Unlocking Lightning wallet"
     
     # Try again to get wallet info
-    WALLET_INFO=$(docker exec -it lightning-node lncli --network=regtest getinfo 2>&1)
+    sleep 2
+    WALLET_INFO=$(docker exec lightning-node lncli --network=regtest getinfo 2>&1)
     if [[ $WALLET_INFO == *"wallet is encrypted"* ]]; then
         echo "Failed to unlock with stored password. You may need to unlock manually." | tee -a $TEST_LOG
         echo "Use: docker exec -it lightning-node lncli --network=regtest unlock" | tee -a $TEST_LOG
@@ -132,12 +153,12 @@ fi
 
 # Get Lightning node info and save it
 echo "Getting Lightning node info..." | tee -a $TEST_LOG
-docker exec -it lightning-node lncli --network=regtest getinfo > $RESULTS_DIR/lightning_info.json
+docker exec lightning-node lncli --network=regtest getinfo > $RESULTS_DIR/lightning_info.json
 check_result "Saving Lightning node info"
 
 # Get wallet balance
 echo "Checking Lightning wallet balance..." | tee -a $TEST_LOG
-docker exec -it lightning-node lncli --network=regtest walletbalance > $RESULTS_DIR/lightning_balance.json
+docker exec lightning-node lncli --network=regtest walletbalance > $RESULTS_DIR/lightning_balance.json
 check_result "Getting Lightning wallet balance"
 LIGHTNING_BALANCE=$(cat $RESULTS_DIR/lightning_balance.json | grep -o '"confirmed_balance": "[^"]*"' | cut -d'"' -f4)
 echo "Lightning wallet balance: $LIGHTNING_BALANCE sats" | tee -a $TEST_LOG
@@ -149,16 +170,16 @@ if [ "$LIGHTNING_BALANCE" == "0" ]; then
     echo "Lightning wallet is empty. Funding from Bitcoin wallet..." | tee -a $TEST_LOG
     
     # Get a new address from the Lightning wallet
-    LIGHTNING_ADDRESS=$(docker exec -it lightning-node lncli --network=regtest newaddress p2wkh | grep -o '"address": "[^"]*"' | cut -d'"' -f4)
+    LIGHTNING_ADDRESS=$(docker exec lightning-node lncli --network=regtest newaddress p2wkh | grep -o '"address": "[^"]*"' | cut -d'"' -f4)
     check_result "Getting new Lightning wallet address: $LIGHTNING_ADDRESS"
     
     # Send funds from Bitcoin wallet to Lightning wallet
-    TXID=$(docker exec -it bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" sendtoaddress "$LIGHTNING_ADDRESS" 1.0)
+    TXID=$(docker exec bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" sendtoaddress "$LIGHTNING_ADDRESS" 1.0)
     check_result "Sending 1 BTC to Lightning wallet, txid: $TXID"
     
     # Mine a block to confirm the transaction
     echo "Mining a block to confirm the transaction..." | tee -a $TEST_LOG
-    docker exec -it bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" generatetoaddress 6 "$MINING_ADDRESS" > /dev/null
+    docker exec bitcoin-node bitcoin-cli -regtest -rpcuser=lnbhokycfu -rpcpassword="2.%cr.3,ck\\UDiUtqjad[afR" generatetoaddress 6 "$MINING_ADDRESS" > /dev/null
     check_result "Mining 6 blocks to confirm the transaction"
     
     # Wait for the Lightning wallet to detect the funds
@@ -166,7 +187,7 @@ if [ "$LIGHTNING_BALANCE" == "0" ]; then
     sleep 5
     
     # Check new Lightning wallet balance
-    NEW_LIGHTNING_BALANCE=$(docker exec -it lightning-node lncli --network=regtest walletbalance | grep -o '"confirmed_balance": "[^"]*"' | cut -d'"' -f4)
+    NEW_LIGHTNING_BALANCE=$(docker exec lightning-node lncli --network=regtest walletbalance | grep -o '"confirmed_balance": "[^"]*"' | cut -d'"' -f4)
     echo "New Lightning wallet balance: $NEW_LIGHTNING_BALANCE sats" | tee -a $TEST_LOG
     if [ "$NEW_LIGHTNING_BALANCE" != "0" ]; then
         check_result "Lightning wallet funding successful"
@@ -192,7 +213,7 @@ if [ -z "$TEST_NODE_RUNNING" ]; then
     echo "Skipping actual creation of test node for now." | tee -a $TEST_LOG
     
     # Get pubkey of our main Lightning node
-    NODE_PUBKEY=$(docker exec -it lightning-node lncli --network=regtest getinfo | grep -o '"identity_pubkey": "[^"]*"' | cut -d'"' -f4)
+    NODE_PUBKEY=$(docker exec lightning-node lncli --network=regtest getinfo | grep -o '"identity_pubkey": "[^"]*"' | cut -d'"' -f4)
     echo "Main Lightning node pubkey: $NODE_PUBKEY" | tee -a $TEST_LOG
 else
     echo "Test partner Lightning node already exists." | tee -a $TEST_LOG
@@ -203,17 +224,17 @@ section_header "Testing Lightning Network Functionality"
 
 # List open channels
 echo "Listing open channels..." | tee -a $TEST_LOG
-docker exec -it lightning-node lncli --network=regtest listchannels > $RESULTS_DIR/lightning_channels.json
+docker exec lightning-node lncli --network=regtest listchannels > $RESULTS_DIR/lightning_channels.json
 check_result "Listing Lightning channels"
 
 # List pending channels
 echo "Listing pending channels..." | tee -a $TEST_LOG
-docker exec -it lightning-node lncli --network=regtest pendingchannels > $RESULTS_DIR/lightning_pending_channels.json
+docker exec lightning-node lncli --network=regtest pendingchannels > $RESULTS_DIR/lightning_pending_channels.json
 check_result "Listing pending Lightning channels"
 
 # List peers
 echo "Listing peers..." | tee -a $TEST_LOG
-docker exec -it lightning-node lncli --network=regtest listpeers > $RESULTS_DIR/lightning_peers.json
+docker exec lightning-node lncli --network=regtest listpeers > $RESULTS_DIR/lightning_peers.json
 check_result "Listing Lightning peers"
 
 # SECTION 6: Summary
