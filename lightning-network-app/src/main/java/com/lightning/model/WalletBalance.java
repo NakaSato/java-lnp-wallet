@@ -7,6 +7,7 @@ public class WalletBalance {
     private long totalBalance;
     private long confirmedBalance;
     private long unconfirmedBalance;
+    private long lockedBalance;
 
     public long getTotalBalance() {
         return totalBalance;
@@ -30,6 +31,20 @@ public class WalletBalance {
 
     public void setUnconfirmedBalance(long unconfirmedBalance) {
         this.unconfirmedBalance = unconfirmedBalance;
+    }
+    
+    /**
+     * Get balance locked in payment channels
+     */
+    public long getLockedBalance() {
+        return lockedBalance;
+    }
+    
+    /**
+     * Set balance locked in payment channels
+     */
+    public void setLockedBalance(long lockedBalance) {
+        this.lockedBalance = lockedBalance;
     }
     
     /**

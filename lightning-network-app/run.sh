@@ -1,23 +1,23 @@
 #!/bin/bash
 
 # Run the Lightning Network Wallet application
-# This script resolves module conflicts for JavaFX on macOS
+# This script has been updated to run the application using Swing UI
 
 # Change to the project directory
 cd "$(dirname "$0")"
 
-# Default mode is maven
-RUN_MODE="maven"
+# Default mode is direct
+RUN_MODE="direct"
 
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        -j|--jar) RUN_MODE="jar"; shift ;;
+        -m|--maven) RUN_MODE="maven"; shift ;;
         -h|--help) 
             echo "Usage: $0 [options]"
             echo "Options:"
-            echo "  -j, --jar     Run directly from built JAR file"
-            echo "  -h, --help    Show this help message"
+            echo "  -m, --maven    Run using Maven"
+            echo "  -h, --help     Show this help message"
             exit 0 ;;
         *) echo "Unknown parameter: $1"; exit 1 ;;
     esac
@@ -26,22 +26,11 @@ done
 # Build the project if needed
 mvn clean package -DskipTests
 
-if [ "$RUN_MODE" = "jar" ]; then
-    echo "Running from JAR file with macOS compatibility options..."
-    # Use specific JVM arguments to fix the tracking rectangle issue on macOS
-    java \
-      --add-opens=java.base/java.lang=ALL-UNNAMED \
-      --add-exports=java.base/java.lang=ALL-UNNAMED \
-      --add-opens=java.base/java.nio=ALL-UNNAMED \
-      --add-opens=javafx.graphics/javafx.scene=ALL-UNNAMED \
-      --add-opens=javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED \
-      --add-opens=javafx.graphics/com.sun.javafx.tk.quantum=ALL-UNNAMED \
-      --add-opens=javafx.graphics/com.sun.glass.ui=ALL-UNNAMED \
-      --add-opens=javafx.graphics/com.sun.glass.ui.mac=ALL-UNNAMED \
-      -Dglass.disableThreadChecks=true \
-      -jar target/lightning-network-app-1.0.0.jar
+if [ "$RUN_MODE" = "maven" ]; then
+    echo "Running using Maven..."
+    mvn exec:java -Dexec.mainClass="com.lightning.AppLauncher"
 else
-    echo "Running using Maven JavaFX plugin..."
-    # Use the JavaFX Maven plugin to run the application properly
-    mvn javafx:run
+    echo "Running directly from JAR file..."
+    # Run directly from the JAR file (no special arguments needed with Swing)
+    java -jar target/lightning-network-app-1.0.0.jar
 fi

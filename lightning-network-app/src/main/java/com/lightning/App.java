@@ -1,92 +1,141 @@
 package com.lightning;
 
+import com.formdev.flatlaf.FlatLightLaf;
+import com.formdev.flatlaf.intellijthemes.FlatDarkPurpleIJTheme;
 import com.lightning.network.LightningNetworkService;
-import com.lightning.ui.DashboardController;
-import javafx.application.Application;
-import javafx.application.Platform;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
-import javafx.scene.image.Image;
-import javafx.stage.Stage;
+import com.lightning.ui.MainFrame;
 
+import javax.swing.*;
+import java.awt.*;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.Objects;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Main Application class for the Lightning Network Wallet.
  */
-public class App extends Application {
-
-    private static Scene scene;
+public class App {
+    private static final Logger LOGGER = Logger.getLogger(App.class.getName());
     private LightningNetworkService lightningService;
 
-    @Override
-    public void start(Stage stage) throws IOException {
+    /**
+     * Initializes and launches the Swing application
+     */
+    public void start() {
+        // Set up the look and feel
+        try {
+            // Check if there's a saved theme preference
+            String themeName = loadThemePreference();
+            
+            // Apply the appropriate theme
+            switch (themeName) {
+                case "Light":
+                    FlatLightLaf.setup();
+                    break;
+                case "Dark":
+                    com.formdev.flatlaf.FlatDarkLaf.setup();
+                    break;
+                case "Dark Purple":
+                    FlatDarkPurpleIJTheme.setup();
+                    break;
+                case "System Default":
+                    UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+                    break;
+                default:
+                    // Default to dark purple if no preference is found
+                    FlatDarkPurpleIJTheme.setup();
+                    break;
+            }
+            
+            // Set some global UI properties
+            UIManager.put("Button.arc", 10);
+            UIManager.put("Component.arc", 10);
+            UIManager.put("TextComponent.arc", 10);
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to set look and feel", e);
+            // Fall back to the default look and feel
+            try {
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            } catch (Exception ex) {
+                LOGGER.log(Level.SEVERE, "Failed to set system look and feel", ex);
+            }
+        }
+
         // Initialize Lightning Network service
         lightningService = new LightningNetworkService();
-        
-        // Load the main FXML file
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/dashboard.fxml"));
-        Parent root = loader.load();
-        
-        // Get the controller and initialize it with the Lightning service
-        DashboardController controller = loader.getController();
-        controller.initialize(lightningService);
-        
-        // Set up the scene
-        scene = new Scene(root, 900, 600);
-        scene.getStylesheets().add(getClass().getResource("/style/main.css").toExternalForm());
-        
-        // Configure the stage
-        stage.setTitle("Lightning Network Wallet");
-        
-        // Load icon with proper error handling
-        try {
-            InputStream iconStream = getClass().getResourceAsStream("/images/lightning_icon.png");
-            if (iconStream != null) {
-                stage.getIcons().add(new Image(iconStream));
-            } else {
-                System.err.println("Warning: Could not load icon: /images/lightning_icon.png");
+
+        // Create and show the main window
+        SwingUtilities.invokeLater(() -> {
+            try {
+                MainFrame mainFrame = new MainFrame(lightningService);
+                mainFrame.setSize(900, 600);
+                mainFrame.setMinimumSize(new Dimension(750, 500));
+                mainFrame.setLocationRelativeTo(null); // Center on screen
+                mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                mainFrame.setVisible(true);
+                
+                // Handle application shutdown
+                mainFrame.addWindowListener(new java.awt.event.WindowAdapter() {
+                    @Override
+                    public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+                        if (lightningService != null) {
+                            lightningService.shutdown();
+                        }
+                    }
+                });
+            } catch (Exception e) {
+                LOGGER.log(Level.SEVERE, "Failed to initialize application", e);
+                showErrorDialog("Failed to start application: " + e.getMessage());
             }
-        } catch (Exception e) {
-            System.err.println("Error loading application icon: " + e.getMessage());
-        }
-        
-        stage.setScene(scene);
-        stage.setMinWidth(750);
-        stage.setMinHeight(500);
-        stage.show();
-        
-        // Handle application shutdown
-        stage.setOnCloseRequest(event -> {
-            if (lightningService != null) {
-                lightningService.shutdown();
-            }
-            Platform.exit();
         });
-    }
-    
-    /**
-     * Changes the current scene to the specified FXML file
-     */
-    public static void setRoot(String fxml) throws IOException {
-        scene.setRoot(loadFXML(fxml));
     }
 
     /**
-     * Loads an FXML file
+     * Shows an error dialog for critical errors
      */
-    private static Parent loadFXML(String fxml) throws IOException {
-        FXMLLoader fxmlLoader = new FXMLLoader(App.class.getResource("/view/" + fxml + ".fxml"));
-        return fxmlLoader.load();
+    private void showErrorDialog(String message) {
+        SwingUtilities.invokeLater(() -> {
+            JOptionPane.showMessageDialog(
+                null,
+                message,
+                "Application Error",
+                JOptionPane.ERROR_MESSAGE
+            );
+        });
+    }
+
+    /**
+     * Load the user's theme preference from the config file
+     */
+    private String loadThemePreference() {
+        java.util.Properties properties = new java.util.Properties();
+        String configFile = "lightning-config.properties";
+        
+        try {
+            java.io.InputStream inputStream = getClass().getClassLoader().getResourceAsStream(configFile);
+            if (inputStream != null) {
+                properties.load(inputStream);
+                inputStream.close();
+                
+                // Get the theme preference, default to "Dark Purple" if not found
+                return properties.getProperty("theme", "Dark Purple");
+            }
+        } catch (java.io.IOException e) {
+            LOGGER.log(Level.WARNING, "Failed to load theme preference", e);
+        }
+        
+        // Default theme if configuration can't be loaded
+        return "Dark Purple";
     }
 
     /**
      * Main method that launches the application
      */
     public static void main(String[] args) {
-        launch();
+        // Set system properties for high DPI displays
+        System.setProperty("sun.java2d.uiScale", "1.0");
+        
+        App app = new App();
+        app.start();
     }
 }

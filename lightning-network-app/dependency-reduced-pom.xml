@@ -17,36 +17,6 @@
         </configuration>
       </plugin>
       <plugin>
-        <groupId>org.openjfx</groupId>
-        <artifactId>javafx-maven-plugin</artifactId>
-        <version>0.0.8</version>
-        <configuration>
-          <mainClass>com.lightning.App</mainClass>
-          <options>
-            <option>--add-opens</option>
-            <option>java.base/java.lang=ALL-UNNAMED</option>
-            <option>--add-exports</option>
-            <option>java.base/java.lang=ALL-UNNAMED</option>
-            <option>--add-opens</option>
-            <option>java.base/java.nio=ALL-UNNAMED</option>
-            <option>--add-opens</option>
-            <option>javafx.graphics/javafx.scene=ALL-UNNAMED</option>
-            <option>--patch-module</option>
-            <option>java.base=/dev/null</option>
-          </options>
-          <jlinkImageName>LightningWallet</jlinkImageName>
-          <launcher>launcher</launcher>
-          <compress>2</compress>
-          <stripDebug>true</stripDebug>
-          <noHeaderFiles>true</noHeaderFiles>
-          <noManPages>true</noManPages>
-          <jpmsOptions>
-            <option>--add-modules</option>
-            <option>ALL-MODULE-PATH</option>
-          </jpmsOptions>
-        </configuration>
-      </plugin>
-      <plugin>
         <artifactId>maven-shade-plugin</artifactId>
         <version>3.2.4</version>
         <executions>
@@ -64,6 +34,14 @@
             </configuration>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.openjfx</groupId>
+        <artifactId>javafx-maven-plugin</artifactId>
+        <version>0.0.8</version>
+        <configuration>
+          <mainClass>com.lightning.AppLauncher</mainClass>
+        </configuration>
       </plugin>
     </plugins>
   </build>

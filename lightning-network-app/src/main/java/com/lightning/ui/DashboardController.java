@@ -175,14 +175,30 @@ public class DashboardController {
     }
     
     /**
-     * Refresh the list of invoices
+     * Refresh the list of invoices - use local database as backup
      */
     @FXML
     private void refreshInvoices() {
         Task<List<Invoice>> task = new Task<>() {
             @Override
             protected List<Invoice> call() throws Exception {
-                return lightningService.listInvoices();
+                try {
+                    // Check if gRPC proxy is available at 127.0.0.1:8080
+                    boolean useGrpcProxy = lightningService.isGrpcProxyAvailable();
+                    if (useGrpcProxy) {
+                        LOGGER.info("Using gRPC proxy for invoice refresh");
+                        // Use gRPC method when available
+                        return lightningService.listInvoicesViaGrpc();
+                    } else {
+                        // Fall back to REST API
+                        LOGGER.info("Using REST API for invoice refresh");
+                        return lightningService.listInvoices();
+                    }
+                } catch (Exception e) {
+                    // If that fails, fall back to local database
+                    LOGGER.log(Level.WARNING, "Could not fetch invoices from node, using local database", e);
+                    return lightningService.getLocalInvoices();
+                }
             }
         };
         
@@ -234,14 +250,15 @@ public class DashboardController {
         Task<Invoice> task = new Task<>() {
             @Override
             protected Invoice call() throws Exception {
-                return lightningService.createInvoice(amount, finalMemo);
+                // Use the database-integrated method instead
+                return lightningService.createInvoiceAndSave(amount, finalMemo);
             }
         };
         
         task.setOnSucceeded(event -> {
             Invoice invoice = task.getValue();
             receiveInvoiceField.setText(invoice.getPaymentRequest());
-            qrCodeImageView.setImage(QRCodeGenerator.generateQRCode(invoice.getPaymentRequest(), 250, 250));
+            qrCodeImageView.setImage(QRCodeGenerator.generateQRCodeFX(invoice.getPaymentRequest(), 250, 250));
             
             // Update the invoice list
             refreshInvoices();
@@ -278,7 +295,8 @@ public class DashboardController {
             Task<Payment> task = new Task<>() {
                 @Override
                 protected Payment call() throws Exception {
-                    return lightningService.payInvoice(paymentRequest);
+                    // Use the database-integrated method instead
+                    return lightningService.payInvoiceAndSave(paymentRequest);
                 }
             };
             
@@ -330,7 +348,7 @@ public class DashboardController {
             dialog.setHeaderText("Your Bitcoin Deposit Address");
             dialog.setContentText("Send funds to this address to fund your Lightning wallet:");
             
-            ImageView qrImageView = new ImageView(QRCodeGenerator.generateQRCode(address, 200, 200));
+            ImageView qrImageView = new ImageView(QRCodeGenerator.generateQRCodeFX(address, 200, 200));
             qrImageView.setFitWidth(200);
             qrImageView.setFitHeight(200);
             
