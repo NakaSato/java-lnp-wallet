@@ -1,15 +1,15 @@
 {
   "chain": "regtest",
-  "blocks": 101,
-  "headers": 101,
-  "bestblockhash": "4a977dd1f8d9a2a2991888bc04edc39c00fec6003687f0d2d4a7c4d22748b5f4",
+  "blocks": 0,
+  "headers": 0,
+  "bestblockhash": "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206",
   "difficulty": 4.656542373906925e-10,
-  "time": 1745772114,
-  "mediantime": 1745772113,
+  "time": 1296688602,
+  "mediantime": 1296688602,
   "verificationprogress": 1,
-  "initialblockdownload": false,
-  "chainwork": "00000000000000000000000000000000000000000000000000000000000000cc",
-  "size_on_disk": 30375,
+  "initialblockdownload": true,
+  "chainwork": "0000000000000000000000000000000000000000000000000000000000000002",
+  "size_on_disk": 293,
   "pruned": false,
   "warnings": ""
 }

@@ -32,6 +32,8 @@ public class DashboardPanel extends JPanel {
     private JLabel activeChannelsValueLabel;
     private JLabel pendingChannelsValueLabel;
     private JLabel syncStatusValueLabel;
+    private JLabel connectionStatusLabel; // New connection status indicator
+    private JButton connectButton; // Button to reconnect to node
     
     // Balance components
     private JLabel confirmedBalanceValueLabel;
@@ -58,6 +60,12 @@ public class DashboardPanel extends JPanel {
         // Balance section with charts
         JPanel balancePanel = createBalancePanel();
         add(balancePanel, "cell 0 1, grow");
+        
+        // Initialize connection status
+        updateConnectionStatus();
+        
+        // Set up connect button action
+        connectButton.addActionListener(e -> connectToNode());
     }
     
     private JPanel createNodeInfoPanel() {
@@ -93,6 +101,15 @@ public class DashboardPanel extends JPanel {
         panel.add(new JLabel("Sync Status:"), "cell 0 5");
         syncStatusValueLabel = new JLabel("Not synced");
         panel.add(syncStatusValueLabel, "cell 1 5");
+        
+        // Connection status
+        panel.add(new JLabel("Connection Status:"), "cell 0 6");
+        connectionStatusLabel = new JLabel("Unknown");
+        panel.add(connectionStatusLabel, "cell 1 6");
+        
+        // Connect button
+        connectButton = new JButton("Connect");
+        panel.add(connectButton, "cell 1 7");
         
         return panel;
     }
@@ -170,12 +187,22 @@ public class DashboardPanel extends JPanel {
                     data.lightningInfo = lightningService.getNodeInfo();
                 } catch (Exception e) {
                     LOGGER.log(Level.WARNING, "Failed to fetch node info", e);
+                    // Create fallback node info with default values
+                    LightningInfo fallbackInfo = new LightningInfo();
+                    fallbackInfo.setAlias("Not Connected");
+                    fallbackInfo.setIdentityPubkey("Offline Mode - Network Unavailable");
+                    fallbackInfo.setSyncedToChain(false);
+                    data.lightningInfo = fallbackInfo;
                 }
                 
                 try {
                     data.walletBalance = lightningService.getWalletBalance();
                 } catch (Exception e) {
                     LOGGER.log(Level.WARNING, "Failed to fetch wallet balance", e);
+                    // Create an empty wallet balance as fallback
+                    WalletBalance fallbackBalance = new WalletBalance();
+                    // Try to get last cached balance from database if available
+                    data.walletBalance = fallbackBalance;
                 }
                 
                 return data;
@@ -188,11 +215,27 @@ public class DashboardPanel extends JPanel {
                     updateUI(data);
                 } catch (InterruptedException | ExecutionException e) {
                     LOGGER.log(Level.SEVERE, "Error refreshing dashboard data", e);
+                    // Show offline state in UI
+                    DashboardData fallbackData = new DashboardData();
+                    fallbackData.lightningInfo = createOfflineNodeInfo();
+                    fallbackData.walletBalance = new WalletBalance();
+                    updateUI(fallbackData);
                 }
             }
         };
         
         worker.execute();
+    }
+    
+    /**
+     * Creates a default node info for offline mode
+     */
+    private LightningInfo createOfflineNodeInfo() {
+        LightningInfo info = new LightningInfo();
+        info.setAlias("Not Connected");
+        info.setIdentityPubkey("Offline Mode - Connection Error");
+        info.setSyncedToChain(false);
+        return info;
     }
     
     private void updateUI(DashboardData data) {
@@ -228,6 +271,119 @@ public class DashboardPanel extends JPanel {
             balanceDataset.setValue("Unconfirmed", unconfirmed);
             balanceDataset.setValue("Locked", locked);
         }
+        
+        // Update connection status after data refresh
+        updateConnectionStatus();
+    }
+    
+    /**
+     * Updates the connection status indicator
+     */
+    private void updateConnectionStatus() {
+        SwingWorker<Boolean, Void> worker = new SwingWorker<>() {
+            @Override
+            protected Boolean doInBackground() {
+                return lightningService.testConnection();
+            }
+            
+            @Override
+            protected void done() {
+                try {
+                    boolean isConnected = get();
+                    if (isConnected) {
+                        connectionStatusLabel.setText("Connected");
+                        connectionStatusLabel.setForeground(new Color(0, 150, 0)); // Green
+                        connectButton.setEnabled(false);
+                    } else {
+                        connectionStatusLabel.setText("Disconnected");
+                        connectionStatusLabel.setForeground(Color.RED);
+                        connectButton.setEnabled(true);
+                    }
+                } catch (Exception e) {
+                    LOGGER.log(Level.WARNING, "Error checking connection status", e);
+                    connectionStatusLabel.setText("Unknown");
+                    connectionStatusLabel.setForeground(Color.ORANGE);
+                    connectButton.setEnabled(true);
+                }
+            }
+        };
+        
+        worker.execute();
+    }
+    
+    /**
+     * Attempts to connect to the Lightning Network node
+     */
+    private void connectToNode() {
+        connectButton.setEnabled(false);
+        connectionStatusLabel.setText("Connecting...");
+        connectionStatusLabel.setForeground(Color.BLUE);
+        
+        SwingWorker<Boolean, Void> worker = new SwingWorker<>() {
+            @Override
+            protected Boolean doInBackground() throws Exception {
+                try {
+                    return lightningService.connect();
+                } catch (Exception e) {
+                    LOGGER.log(Level.SEVERE, "Error connecting to node", e);
+                    return false;
+                }
+            }
+            
+            @Override
+            protected void done() {
+                try {
+                    boolean success = get();
+                    if (success) {
+                        JOptionPane.showMessageDialog(
+                            DashboardPanel.this,
+                            "Successfully connected to Lightning Network node.",
+                            "Connection Successful",
+                            JOptionPane.INFORMATION_MESSAGE
+                        );
+                        // Refresh data now that we're connected
+                        refreshData();
+                    } else {
+                        // Try auto-fixing the connection
+                        boolean autoFixed = lightningService.autoFixConnection();
+                        if (autoFixed) {
+                            JOptionPane.showMessageDialog(
+                                DashboardPanel.this,
+                                "Auto-fixed connection to Lightning Network node.",
+                                "Connection Fixed",
+                                JOptionPane.INFORMATION_MESSAGE
+                            );
+                            // Refresh data with the fixed connection
+                            refreshData();
+                        } else {
+                            JOptionPane.showMessageDialog(
+                                DashboardPanel.this,
+                                "Failed to connect to Lightning Network node.\n" +
+                                "Please check your settings and ensure the node is running.",
+                                "Connection Failed",
+                                JOptionPane.ERROR_MESSAGE
+                            );
+                            connectionStatusLabel.setText("Disconnected");
+                            connectionStatusLabel.setForeground(Color.RED);
+                            connectButton.setEnabled(true);
+                        }
+                    }
+                } catch (Exception e) {
+                    LOGGER.log(Level.SEVERE, "Error in connection process", e);
+                    JOptionPane.showMessageDialog(
+                        DashboardPanel.this,
+                        "Error connecting to Lightning Network node: " + e.getMessage(),
+                        "Connection Error",
+                        JOptionPane.ERROR_MESSAGE
+                    );
+                    connectionStatusLabel.setText("Error");
+                    connectionStatusLabel.setForeground(Color.RED);
+                    connectButton.setEnabled(true);
+                }
+            }
+        };
+        
+        worker.execute();
     }
     
     /**

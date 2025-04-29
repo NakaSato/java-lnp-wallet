@@ -186,9 +186,9 @@
             <padding>
                 <Insets top="5" right="10" bottom="5" left="10"/>
             </padding>
-            <Label text="Connected to local Lightning Network node" />
-            <Region HBox.hgrow="ALWAYS"/>
-            <Label text="Last update: " />
+            <Label text="Connection Status:" />
+            <Label fx:id="connectionStatusLabel" text="Unknown" />
+            <Button fx:id="connectButton" text="Connect" onAction="#connectToNode" />
         </HBox>
     </bottom>
     

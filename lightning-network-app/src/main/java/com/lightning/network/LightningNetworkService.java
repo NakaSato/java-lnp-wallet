@@ -13,6 +13,7 @@ import javax.net.ssl.*;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.file.Files;
@@ -437,26 +438,99 @@ public class LightningNetworkService {
     }
     
     /**
-     * Get the wallet balance
+     * Get the wallet balance with fallback to local cache if network fails
      */
     public WalletBalance getWalletBalance() throws IOException {
-        Request request = new Request.Builder()
-                .url(baseUrl + "/balance/blockchain")
-                .build();
-        
-        Response response = client.newCall(request).execute();
-        if (!response.isSuccessful()) {
-            throw new IOException("Failed to get wallet balance: " + response);
+        try {
+            Request request = new Request.Builder()
+                    .url(baseUrl + "/balance/blockchain")
+                    .build();
+            
+            Response response = client.newCall(request).execute();
+            if (!response.isSuccessful()) {
+                throw new IOException("Failed to get wallet balance: " + response);
+            }
+            
+            JsonObject json = gson.fromJson(response.body().string(), JsonObject.class);
+            
+            WalletBalance balance = new WalletBalance();
+            balance.setTotalBalance(json.get("total_balance").getAsLong());
+            balance.setConfirmedBalance(json.get("confirmed_balance").getAsLong());
+            balance.setUnconfirmedBalance(json.get("unconfirmed_balance").getAsLong());
+            
+            // Cache the balance for offline mode
+            saveBalanceToCache(balance);
+            
+            return balance;
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Error getting wallet balance from network, trying local cache", e);
+            // Try to get last known balance from local cache
+            WalletBalance cachedBalance = getBalanceFromCache();
+            if (cachedBalance != null) {
+                return cachedBalance;
+            }
+            
+            // If no cached balance, return empty balance 
+            LOGGER.log(Level.WARNING, "No cached balance available, returning empty balance");
+            return new WalletBalance();
         }
-        
-        JsonObject json = gson.fromJson(response.body().string(), JsonObject.class);
-        
-        WalletBalance balance = new WalletBalance();
-        balance.setTotalBalance(json.get("total_balance").getAsLong());
-        balance.setConfirmedBalance(json.get("confirmed_balance").getAsLong());
-        balance.setUnconfirmedBalance(json.get("unconfirmed_balance").getAsLong());
-        
-        return balance;
+    }
+    
+    /**
+     * Save balance to local cache for offline mode
+     */
+    private void saveBalanceToCache(WalletBalance balance) {
+        try {
+            // Create path for cache if it doesn't exist
+            Path cacheDir = Paths.get(System.getProperty("user.home"), USER_CONFIG_DIR, "cache");
+            if (!Files.exists(cacheDir)) {
+                Files.createDirectories(cacheDir);
+            }
+            
+            // Save balance to JSON file
+            Path balanceCachePath = cacheDir.resolve("balance-cache.json");
+            JsonObject json = new JsonObject();
+            json.addProperty("total_balance", balance.getTotalBalance());
+            json.addProperty("confirmed_balance", balance.getConfirmedBalance());
+            json.addProperty("unconfirmed_balance", balance.getUnconfirmedBalance());
+            json.addProperty("locked_balance", balance.getLockedBalance());
+            json.addProperty("cached_at", System.currentTimeMillis());
+            
+            Files.writeString(balanceCachePath, gson.toJson(json));
+            LOGGER.info("Saved balance to cache: " + balanceCachePath);
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to save balance to cache", e);
+        }
+    }
+    
+    /**
+     * Get balance from local cache for offline mode
+     */
+    private WalletBalance getBalanceFromCache() {
+        try {
+            Path cacheDir = Paths.get(System.getProperty("user.home"), USER_CONFIG_DIR, "cache");
+            Path balanceCachePath = cacheDir.resolve("balance-cache.json");
+            
+            if (Files.exists(balanceCachePath)) {
+                String jsonStr = Files.readString(balanceCachePath);
+                JsonObject json = gson.fromJson(jsonStr, JsonObject.class);
+                
+                WalletBalance balance = new WalletBalance();
+                balance.setTotalBalance(json.get("total_balance").getAsLong());
+                balance.setConfirmedBalance(json.get("confirmed_balance").getAsLong());
+                balance.setUnconfirmedBalance(json.get("unconfirmed_balance").getAsLong());
+                
+                if (json.has("locked_balance")) {
+                    balance.setLockedBalance(json.get("locked_balance").getAsLong());
+                }
+                
+                LOGGER.info("Loaded balance from cache: " + balanceCachePath);
+                return balance;
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to load balance from cache", e);
+        }
+        return null;
     }
     
     /**
@@ -862,3 +936,98 @@ public class LightningNetworkService {
         // Try to discover port
         int discoveredPort = discoverNodePort(host);
         if (discoveredPort > 0 && discoveredPort != port) {
+            LOGGER.info("Discovered working port: " + discoveredPort);
+            
+            // Update config with new port
+            configProps.setProperty("port", String.valueOf(discoveredPort));
+            saveConfig(configProps);
+            
+            // Reinitialize connection
+            initializeConnection();
+            
+            // Test connection with new settings
+            if (testConnection()) {
+                LOGGER.info("Connection fixed with new port: " + discoveredPort);
+                return true;
+            }
+        }
+        
+        // If discovering the port didn't help, try common localhost addresses
+        if (host.equals("localhost")) {
+            String[] commonAddresses = {"127.0.0.1", "0.0.0.0"};
+            
+            for (String address : commonAddresses) {
+                LOGGER.info("Trying alternative address: " + address);
+                
+                if (isNodeRunning(address, port, 1000)) {
+                    // Update config with new host
+                    configProps.setProperty("host", address);
+                    saveConfig(configProps);
+                    
+                    // Reinitialize connection
+                    initializeConnection();
+                    
+                    // Test connection with new settings
+                    if (testConnection()) {
+                        LOGGER.info("Connection fixed with new host: " + address);
+                        return true;
+                    }
+                }
+                
+                // Try with discovered port as well
+                if (discoveredPort > 0) {
+                    if (isNodeRunning(address, discoveredPort, 1000)) {
+                        // Update config with new host and port
+                        configProps.setProperty("host", address);
+                        configProps.setProperty("port", String.valueOf(discoveredPort));
+                        saveConfig(configProps);
+                        
+                        // Reinitialize connection
+                        initializeConnection();
+                        
+                        // Test connection with new settings
+                        if (testConnection()) {
+                            LOGGER.info("Connection fixed with new host: " + address + " and port: " + discoveredPort);
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        
+        LOGGER.warning("Could not auto-fix connection to Lightning node");
+        return false;
+    }
+    
+    /**
+     * Check if gRPC proxy is available
+     * @return true if gRPC proxy is available, false otherwise
+     */
+    public boolean isGrpcProxyAvailable() {
+        String host = configProps.getProperty("grpc.host", "127.0.0.1");
+        int port = Integer.parseInt(configProps.getProperty("grpc.port", "8080"));
+        
+        LOGGER.info("Checking if gRPC proxy is available at " + host + ":" + port);
+        
+        // Check if the gRPC proxy is running at the specified host and port
+        boolean isAvailable = isNodeRunning(host, port, 1000);
+        
+        if (isAvailable) {
+            LOGGER.info("gRPC proxy is available");
+        } else {
+            LOGGER.info("gRPC proxy is not available");
+        }
+        
+        return isAvailable;
+    }
+    
+    /**
+     * List invoices using gRPC proxy
+     */
+    public List<Invoice> listInvoicesViaGrpc() throws IOException {
+        // For now, we'll use the REST API implementation
+        // In a full implementation, you would connect to the gRPC server and call the appropriate methods
+        LOGGER.info("Using gRPC proxy for listing invoices (via REST API bridge for now)");
+        return listInvoices();
+    }
+}

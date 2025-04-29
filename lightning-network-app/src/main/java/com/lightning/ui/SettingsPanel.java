@@ -314,4 +314,67 @@ public class SettingsPanel extends JPanel {
     public void refreshData() {
         // No data to refresh
     }
+    
+    /**
+     * Focus on the connection settings section
+     * This is used when there's a connection error and the user wants to edit the settings
+     */
+    public void focusConnectionSettings() {
+        // Flash the connection panel to draw attention
+        JPanel connectionPanel = (JPanel) getComponent(0);
+        flashComponent(connectionPanel);
+        
+        // Set focus to the host field
+        hostField.requestFocusInWindow();
+        hostField.selectAll();
+    }
+    
+    /**
+     * Flashes a component to draw attention to it
+     */
+    private void flashComponent(JComponent component) {
+        Color originalBorder = null;
+        if (component.getBorder() instanceof TitledBorder) {
+            originalBorder = ((TitledBorder) component.getBorder()).getTitleColor();
+        }
+        
+        // Create a timer to flash the border
+        final Color finalOriginalBorder = originalBorder != null ? originalBorder : UIManager.getColor("TitledBorder.titleColor");
+        final Timer timer = new Timer(300, null);
+        
+        final int[] count = {0};
+        
+        timer.addActionListener(e -> {
+            if (count[0] % 2 == 0) {
+                // Flash to highlight color
+                if (component.getBorder() instanceof TitledBorder) {
+                    ((TitledBorder) component.getBorder()).setTitleColor(Color.RED);
+                } else {
+                    component.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
+                }
+            } else {
+                // Flash back to original
+                if (component.getBorder() instanceof TitledBorder) {
+                    ((TitledBorder) component.getBorder()).setTitleColor(finalOriginalBorder);
+                } else {
+                    component.setBorder(BorderFactory.createEmptyBorder());
+                }
+            }
+            
+            component.repaint();
+            count[0]++;
+            
+            // Stop after a few flashes
+            if (count[0] >= 6) {
+                timer.stop();
+                // Ensure we end with the original state
+                if (component.getBorder() instanceof TitledBorder) {
+                    ((TitledBorder) component.getBorder()).setTitleColor(finalOriginalBorder);
+                }
+                component.repaint();
+            }
+        });
+        
+        timer.start();
+    }
 }
