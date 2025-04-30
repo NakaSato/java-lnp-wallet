@@ -3,11 +3,11 @@
 # Helper script for common bitcoin-cli commands
 # Hard-coding credentials for now to fix connection issues
 BITCOIN_RPC_USER="lnbhokycfu"
-BITCOIN_RPC_PASSWORD="2.%cr.3,ck\\UDiUtqjad[afR"
+BITCOIN_RPC_PASSWORD='2.%cr.3,ck\\UDiUtqjad[afR'  # Fixed password from config file
 
-# Function to run bitcoin-cli command
+# Function to run bitcoin-cli command - using direct approach
 bitcoin_cli() {
-  docker exec bitcoin-node bitcoin-cli -regtest -rpcuser="$BITCOIN_RPC_USER" -rpcpassword="$BITCOIN_RPC_PASSWORD" "$@"
+  docker exec bitcoin-node bitcoin-cli -regtest -rpcuser=$BITCOIN_RPC_USER -rpcpassword='2.%cr.3,ck\\UDiUtqjad[afR' "$@"
 }
 
 # Function to run lightning-cli command

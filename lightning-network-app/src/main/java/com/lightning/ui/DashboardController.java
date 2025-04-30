@@ -458,11 +458,57 @@ public class DashboardController {
     }
     
     /**
-     * Checks the connection status to the Lightning Network node
+     * Checks the connection status to the Lightning Network node using the ConnectionManager
      */
     private void checkConnectionStatus() {
         if (connectionStatusLabel == null || connectButton == null) {
             return; // UI elements not available
+        }
+        
+        // Create the connection manager if it doesn't exist yet
+        if (connectionManager == null) {
+            connectionManager = new LightningConnectionManager(lightningService);
+            
+            // Add listener to handle status changes
+            connectionManager.addConnectionListener((newStatus, message) -> {
+                Platform.runLater(() -> {
+                    switch (newStatus) {
+                        case CONNECTED:
+                            connectionStatusLabel.setText("Connected");
+                            connectionStatusLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: green;");
+                            connectButton.setDisable(true);
+                            
+                            // Refresh data when connection is established
+                            refreshNodeInfo();
+                            refreshWalletBalance();
+                            break;
+                            
+                        case DISCONNECTED:
+                            connectionStatusLabel.setText("Disconnected");
+                            connectionStatusLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: red;");
+                            connectButton.setDisable(false);
+                            break;
+                            
+                        case CONNECTING:
+                            connectionStatusLabel.setText("Connecting...");
+                            connectionStatusLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: blue;");
+                            connectButton.setDisable(true);
+                            break;
+                            
+                        case ERROR:
+                            connectionStatusLabel.setText("Error");
+                            connectionStatusLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: red;");
+                            connectButton.setDisable(false);
+                            LOGGER.log(Level.WARNING, "Connection error: " + message);
+                            break;
+                            
+                        default:
+                            connectionStatusLabel.setText("Unknown");
+                            connectionStatusLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: orange;");
+                            connectButton.setDisable(false);
+                    }
+                });
+            });
         }
         
         // Set initial state
@@ -470,31 +516,21 @@ public class DashboardController {
         connectionStatusLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: blue;");
         connectButton.setDisable(true);
         
-        Task<Boolean> task = new Task<>() {
+        // Check status in background thread
+        Task<ConnectionStatus> task = new Task<>() {
             @Override
-            protected Boolean call() throws Exception {
-                return lightningService.testConnection();
+            protected ConnectionStatus call() throws Exception {
+                return connectionManager.checkConnectionStatus();
             }
         };
         
-        task.setOnSucceeded(event -> {
-            boolean isConnected = task.getValue();
-            if (isConnected) {
-                connectionStatusLabel.setText("Connected");
-                connectionStatusLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: green;");
-                connectButton.setDisable(true);
-            } else {
-                connectionStatusLabel.setText("Disconnected");
+        task.setOnFailed(event -> {
+            LOGGER.log(Level.WARNING, "Error checking connection status", task.getException());
+            Platform.runLater(() -> {
+                connectionStatusLabel.setText("Error");
                 connectionStatusLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: red;");
                 connectButton.setDisable(false);
-            }
-        });
-        
-        task.setOnFailed(event -> {
-            connectionStatusLabel.setText("Error");
-            connectionStatusLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: red;");
-            connectButton.setDisable(false);
-            LOGGER.log(Level.WARNING, "Error checking connection status", task.getException());
+            });
         });
         
         new Thread(task).start();

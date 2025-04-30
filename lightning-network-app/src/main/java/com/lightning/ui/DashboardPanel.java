@@ -2,6 +2,8 @@ package com.lightning.ui;
 
 import com.lightning.model.LightningInfo;
 import com.lightning.model.WalletBalance;
+import com.lightning.network.LightningConnectionManager;
+import com.lightning.network.LightningConnectionManager.ConnectionStatus;
 import com.lightning.network.LightningNetworkService;
 import net.miginfocom.swing.MigLayout;
 import org.jfree.chart.ChartFactory;

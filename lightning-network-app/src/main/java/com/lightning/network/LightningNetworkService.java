@@ -60,26 +60,25 @@ public class LightningNetworkService {
      */
     public void initializeConnection() {
         // Use Docker-friendly connection settings by default (for development)
-        // Changed to use 10009 port (gRPC) instead of 8080 (REST) because gRPC is the primary interface for LND
-        String host = configProps.getProperty("host", "127.0.0.1"); // Use 127.0.0.1 instead of localhost
-        String port = configProps.getProperty("port", "10009"); // Use gRPC port 10009 instead of REST port 8080
+        String host = configProps.getProperty("host", NetworkConstants.DEFAULT_LIGHTNING_HOST);
+        String port = configProps.getProperty("port", String.valueOf(NetworkConstants.DEFAULT_LIGHTNING_REST_PORT));
         String tlsCertPath = configProps.getProperty("tls.cert.path", "");
         
         // Try HTTPS first
         useHttps = true;
-        baseUrl = String.format("https://%s:%s/v1", host, port);
+        baseUrl = NetworkConstants.getLightningRestUrl(host, Integer.parseInt(port), true);
         
         OkHttpClient.Builder builder = new OkHttpClient.Builder()
-                .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
-                .writeTimeout(30, TimeUnit.SECONDS)
+                .connectTimeout(NetworkConstants.CONNECTION_TIMEOUT, TimeUnit.SECONDS)
+                .readTimeout(NetworkConstants.CONNECTION_TIMEOUT, TimeUnit.SECONDS)
+                .writeTimeout(NetworkConstants.CONNECTION_TIMEOUT, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true);
         
         // Configure TLS for secure communication with the Lightning node
         if (!configureTLS(builder, tlsCertPath)) {
             // If TLS configuration fails, try HTTP instead
             useHttps = false;
-            baseUrl = String.format("http://%s:%s/v1", host, port);
+            baseUrl = NetworkConstants.getLightningRestUrl(host, Integer.parseInt(port), false);
             LOGGER.warning("SSL configuration failed. Falling back to HTTP (insecure) connection.");
         }
         
@@ -155,12 +154,12 @@ public class LightningNetworkService {
     }
     
     /**
-     * Test the connection to the Lightning node
+     * Test the connection to the Lightning node using multiple endpoints
      * @return true if connection is successful, false otherwise
      */
     public boolean testConnection() {
         try {
-            // First try HTTPS
+            // First try current baseUrl
             Request request = new Request.Builder()
                     .url(baseUrl + "/getinfo")
                     .build();
@@ -171,65 +170,79 @@ public class LightningNetworkService {
                 return true;
             }
             
-            // If HTTPS fails, try HTTP if we haven't already
-            if (useHttps) {
-                LOGGER.warning("HTTPS connection failed. Trying HTTP...");
-                useHttps = false;
-                String host = configProps.getProperty("host", "localhost");
-                String port = configProps.getProperty("port", "8080");
-                baseUrl = String.format("http://%s:%s/v1", host, port);
+            // If that fails, try standard endpoints
+            
+            // 1. Try Lightning REST API
+            if (!baseUrl.equals(NetworkConstants.LIGHTNING_REST_API_URL + "/v1")) {
+                String host = configProps.getProperty("host", NetworkConstants.DEFAULT_LIGHTNING_HOST);
+                baseUrl = NetworkConstants.LIGHTNING_REST_API_URL + "/v1";
+                useHttps = true;
                 
+                // Reconfigure client for HTTPS
                 OkHttpClient.Builder builder = new OkHttpClient.Builder()
-                        .connectTimeout(30, TimeUnit.SECONDS)
-                        .readTimeout(30, TimeUnit.SECONDS)
-                        .writeTimeout(30, TimeUnit.SECONDS);
+                        .connectTimeout(NetworkConstants.CONNECTION_TIMEOUT, TimeUnit.SECONDS)
+                        .readTimeout(NetworkConstants.CONNECTION_TIMEOUT, TimeUnit.SECONDS)
+                        .writeTimeout(NetworkConstants.CONNECTION_TIMEOUT, TimeUnit.SECONDS);
                 
+                configureTLS(builder, configProps.getProperty("tls.cert.path", ""));
                 client = builder.build();
                 
                 request = new Request.Builder()
                         .url(baseUrl + "/getinfo")
                         .build();
                 
-                response = client.newCall(request).execute();
-                if (response.isSuccessful()) {
-                    LOGGER.info("Successfully connected to Lightning node using HTTP: " + baseUrl);
-                    return true;
+                try {
+                    response = client.newCall(request).execute();
+                    if (response.isSuccessful()) {
+                        LOGGER.info("Successfully connected to Lightning node using standard REST API: " + baseUrl);
+                        
+                        // Update config with working connection
+                        configProps.setProperty("port", String.valueOf(NetworkConstants.DEFAULT_LIGHTNING_REST_PORT));
+                        saveConfig(configProps);
+                        
+                        return true;
+                    }
+                } catch (Exception e) {
+                    LOGGER.warning("Failed to connect using standard REST API: " + e.getMessage());
                 }
             }
             
-            LOGGER.severe("Failed to connect to Lightning node: " + response);
+            // 2. Try Lightning RPC over HTTP
+            baseUrl = NetworkConstants.LIGHTNING_RPC_URL + "/v1";
+            useHttps = false;
+            
+            // Reconfigure client for HTTP
+            OkHttpClient.Builder builder = new OkHttpClient.Builder()
+                    .connectTimeout(NetworkConstants.CONNECTION_TIMEOUT, TimeUnit.SECONDS)
+                    .readTimeout(NetworkConstants.CONNECTION_TIMEOUT, TimeUnit.SECONDS)
+                    .writeTimeout(NetworkConstants.CONNECTION_TIMEOUT, TimeUnit.SECONDS);
+            
+            client = builder.build();
+            
+            request = new Request.Builder()
+                    .url(baseUrl + "/getinfo")
+                    .build();
+            
+            try {
+                response = client.newCall(request).execute();
+                if (response.isSuccessful()) {
+                    LOGGER.info("Successfully connected to Lightning node using RPC: " + baseUrl);
+                    
+                    // Update config with working connection
+                    configProps.setProperty("port", String.valueOf(NetworkConstants.DEFAULT_LIGHTNING_RPC_PORT));
+                    configProps.setProperty("useHttps", "false");
+                    saveConfig(configProps);
+                    
+                    return true;
+                }
+            } catch (Exception e) {
+                LOGGER.warning("Failed to connect using standard RPC: " + e.getMessage());
+            }
+            
+            LOGGER.severe("Failed to connect to Lightning node using any endpoint");
             return false;
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Error testing connection to Lightning node", e);
-            if (useHttps) {
-                // If HTTPS fails, try HTTP
-                LOGGER.warning("HTTPS connection failed with error. Trying HTTP...");
-                useHttps = false;
-                String host = configProps.getProperty("host", "localhost");
-                String port = configProps.getProperty("port", "8080");
-                baseUrl = String.format("http://%s:%s/v1", host, port);
-                
-                OkHttpClient.Builder builder = new OkHttpClient.Builder()
-                        .connectTimeout(30, TimeUnit.SECONDS)
-                        .readTimeout(30, TimeUnit.SECONDS)
-                        .writeTimeout(30, TimeUnit.SECONDS);
-                
-                client = builder.build();
-                
-                try {
-                    Request request = new Request.Builder()
-                            .url(baseUrl + "/getinfo")
-                            .build();
-                    
-                    Response response = client.newCall(request).execute();
-                    if (response.isSuccessful()) {
-                        LOGGER.info("Successfully connected to Lightning node using HTTP: " + baseUrl);
-                        return true;
-                    }
-                } catch (Exception ex) {
-                    LOGGER.log(Level.SEVERE, "Error connecting via HTTP", ex);
-                }
-            }
             return false;
         }
     }
@@ -821,23 +834,52 @@ public class LightningNetworkService {
     }
     
     /**
-     * Advanced connection test with detailed diagnostics
-     * @return A diagnostic message about the connection
+     * Run connection diagnostics including all standard endpoints
      */
     public String connectionDiagnostics() {
         StringBuilder diagnostics = new StringBuilder();
-        String host = configProps.getProperty("host", "localhost");
-        int port = Integer.parseInt(configProps.getProperty("port", "8080"));
+        String host = configProps.getProperty("host", NetworkConstants.DEFAULT_LIGHTNING_HOST);
+        int port = Integer.parseInt(configProps.getProperty("port", String.valueOf(NetworkConstants.DEFAULT_LIGHTNING_REST_PORT)));
         
         diagnostics.append("Connection Diagnostics Report:\n");
         diagnostics.append("------------------------\n");
         diagnostics.append("Time: ").append(java.time.LocalDateTime.now()).append("\n");
         diagnostics.append("Configured Host: ").append(host).append("\n");
-        diagnostics.append("Configured Port: ").append(port).append("\n");
+        diagnostics.append("Configured Port: ").append(port).append("\n\n");
         
-        // Basic connectivity check
+        // Check standard endpoints
+        diagnostics.append("Testing standard endpoints:\n");
+        
+        // Bitcoin RPC
+        boolean bitcoinRpcAvailable = isNodeRunning(
+            NetworkConstants.DEFAULT_BITCOIN_HOST, 
+            NetworkConstants.DEFAULT_BITCOIN_PORT, 
+            2000
+        );
+        diagnostics.append("Bitcoin RPC (").append(NetworkConstants.BITCOIN_RPC_URL).append("): ")
+                  .append(bitcoinRpcAvailable ? "AVAILABLE" : "NOT AVAILABLE").append("\n");
+        
+        // Lightning RPC
+        boolean lightningRpcAvailable = isNodeRunning(
+            NetworkConstants.DEFAULT_LIGHTNING_HOST, 
+            NetworkConstants.DEFAULT_LIGHTNING_RPC_PORT, 
+            2000
+        );
+        diagnostics.append("Lightning RPC (").append(NetworkConstants.LIGHTNING_RPC_URL).append("): ")
+                  .append(lightningRpcAvailable ? "AVAILABLE" : "NOT AVAILABLE").append("\n");
+        
+        // Lightning REST API
+        boolean lightningRestAvailable = isNodeRunning(
+            NetworkConstants.DEFAULT_LIGHTNING_HOST, 
+            NetworkConstants.DEFAULT_LIGHTNING_REST_PORT, 
+            2000
+        );
+        diagnostics.append("Lightning REST API (").append(NetworkConstants.LIGHTNING_REST_API_URL).append("): ")
+                  .append(lightningRestAvailable ? "AVAILABLE" : "NOT AVAILABLE").append("\n\n");
+        
+        // Basic connectivity check with configured endpoint
         boolean basicConnectivity = isNodeRunning(host, port, 2000);
-        diagnostics.append("Basic Connectivity: ").append(basicConnectivity ? "SUCCESS" : "FAILED").append("\n");
+        diagnostics.append("Configured Endpoint Connectivity: ").append(basicConnectivity ? "SUCCESS" : "FAILED").append("\n");
         
         // Check Bitcoin node status
         diagnostics.append("Checking Bitcoin Node...\n");
@@ -845,7 +887,7 @@ public class LightningNetworkService {
         try {
             // Try to check if Bitcoin node is running on default port
             int bitcoinPort = 8332; // Default for Bitcoin Core RPC
-            bitcoinNodeRunning = isNodeRunning(host, bitcoinPort, 1000);
+            bitcoinNodeRunning = isNodeRunning(NetworkConstants.DEFAULT_BITCOIN_HOST, bitcoinPort, 1000);
             diagnostics.append("Bitcoin Node Reachable: ").append(bitcoinNodeRunning ? "YES" : "NO").append("\n");
         } catch (Exception e) {
             diagnostics.append("Error checking Bitcoin node: ").append(e.getMessage()).append("\n");
@@ -935,79 +977,72 @@ public class LightningNetworkService {
     }
     
     /**
-     * Auto-fix connection issues by discovering the correct port and updating configuration
-     * @return true if connection was fixed, false otherwise
+     * Auto-fix connection by trying all standard endpoints
      */
     public boolean autoFixConnection() {
-        String host = configProps.getProperty("host", "localhost");
-        int port = Integer.parseInt(configProps.getProperty("port", "8080"));
-        
         LOGGER.info("Attempting to auto-fix connection to Lightning node...");
         
-        // Check current config first
-        if (isNodeRunning(host, port, 2000)) {
-            LOGGER.info("Connection with current settings is working");
-            return true;
-        }
+        // Check standard endpoints
         
-        // Try to discover port
-        int discoveredPort = discoverNodePort(host);
-        if (discoveredPort > 0 && discoveredPort != port) {
-            LOGGER.info("Discovered working port: " + discoveredPort);
+        // 1. Try Lightning REST API
+        if (isNodeRunning(NetworkConstants.DEFAULT_LIGHTNING_HOST, NetworkConstants.DEFAULT_LIGHTNING_REST_PORT, 2000)) {
+            LOGGER.info("Found Lightning REST API endpoint available");
             
-            // Update config with new port
-            configProps.setProperty("port", String.valueOf(discoveredPort));
+            // Update config
+            configProps.setProperty("host", NetworkConstants.DEFAULT_LIGHTNING_HOST);
+            configProps.setProperty("port", String.valueOf(NetworkConstants.DEFAULT_LIGHTNING_REST_PORT));
+            configProps.setProperty("useHttps", "true");
             saveConfig(configProps);
             
             // Reinitialize connection
             initializeConnection();
             
-            // Test connection with new settings
+            // Test connection
             if (testConnection()) {
-                LOGGER.info("Connection fixed with new port: " + discoveredPort);
+                LOGGER.info("Connection fixed using Lightning REST API endpoint");
                 return true;
             }
         }
         
-        // If discovering the port didn't help, try common localhost addresses
-        if (host.equals("localhost")) {
-            String[] commonAddresses = {"127.0.0.1", "0.0.0.0"};
+        // 2. Try Lightning RPC
+        if (isNodeRunning(NetworkConstants.DEFAULT_LIGHTNING_HOST, NetworkConstants.DEFAULT_LIGHTNING_RPC_PORT, 2000)) {
+            LOGGER.info("Found Lightning RPC endpoint available");
             
-            for (String address : commonAddresses) {
-                LOGGER.info("Trying alternative address: " + address);
+            // Update config
+            configProps.setProperty("host", NetworkConstants.DEFAULT_LIGHTNING_HOST);
+            configProps.setProperty("port", String.valueOf(NetworkConstants.DEFAULT_LIGHTNING_RPC_PORT));
+            configProps.setProperty("useHttps", "false");
+            saveConfig(configProps);
+            
+            // Reinitialize connection
+            initializeConnection();
+            
+            // Test connection
+            if (testConnection()) {
+                LOGGER.info("Connection fixed using Lightning RPC endpoint");
+                return true;
+            }
+        }
+        
+        // Original auto-fix logic
+        String host = configProps.getProperty("host", "localhost");
+        String port = configProps.getProperty("port", "8080");
+        
+        LOGGER.info("Trying common localhost addresses...");
+        String[] commonAddresses = {"127.0.0.1", "0.0.0.0"};
+        for (String address : commonAddresses) {
+            if (isNodeRunning(address, Integer.parseInt(port), 1000)) {
+                // Update config with new host
+                configProps.setProperty("host", address);
+                saveConfig(configProps);
                 
-                if (isNodeRunning(address, port, 1000)) {
-                    // Update config with new host
-                    configProps.setProperty("host", address);
-                    saveConfig(configProps);
-                    
-                    // Reinitialize connection
-                    initializeConnection();
-                    
-                    // Test connection with new settings
-                    if (testConnection()) {
-                        LOGGER.info("Connection fixed with new host: " + address);
-                        return true;
-                    }
-                }
+                // Reinitialize connection
+                initializeConnection();
                 
-                // Try with discovered port as well
-                if (discoveredPort > 0) {
-                    if (isNodeRunning(address, discoveredPort, 1000)) {
-                        // Update config with new host and port
-                        configProps.setProperty("host", address);
-                        configProps.setProperty("port", String.valueOf(discoveredPort));
-                        saveConfig(configProps);
-                        
-                        // Reinitialize connection
-                        initializeConnection();
-                        
-                        // Test connection with new settings
-                        if (testConnection()) {
-                            LOGGER.info("Connection fixed with new host: " + address + " and port: " + discoveredPort);
-                            return true;
-                        }
-                    }
+                // Test connection with new settings
+                if (testConnection()) {
+                    LOGGER.info("Connection fixed with new host: " + address);
+                    return true;
                 }
             }
         }

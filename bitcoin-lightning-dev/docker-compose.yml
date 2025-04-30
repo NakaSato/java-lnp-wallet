@@ -47,7 +47,6 @@ services:
       --tlsextraip=0.0.0.0
       --tlsextradomain=lightning-node
       --tlsautorefresh
-      --no-rest-tls
       --debuglevel=debug
     depends_on:
       - bitcoin
@@ -65,37 +64,6 @@ services:
     depends_on:
       - lightning
     restart: unless-stopped
-    networks:
-      - lightning-network
-
-  rust-dev:
-    # Using a custom Dockerfile instead of directly using rust:alpine
-    build:
-      context: ./rust-bitcoin-client
-      dockerfile: Dockerfile
-    container_name: bitcoin-rust-dev
-    volumes:
-      - ./rust-bitcoin-client:/app
-      - rust_cargo_cache:/usr/local/cargo/registry # Cache Cargo registry
-      - rust_target_cache:/app/target # Cache build artifacts
-    working_dir: /app
-    environment:
-      - BITCOIN_RPC_USER=${BITCOIN_RPC_USER:-lnbhokycfu}
-      - BITCOIN_RPC_PASSWORD=${BITCOIN_RPC_PASSWORD:-2.%cr.3,ck\\UDiUtqjad[afR}
-      - BITCOIN_RPC_HOST=bitcoin
-      - LIGHTNING_RPC_HOST=lightning
-      - RUST_BACKTRACE=0 # Disable backtrace to save memory
-      - CARGO_HOME=/usr/local/cargo
-      # Significantly optimized for low memory usage during compilation
-      - RUSTFLAGS="-C target-cpu=generic -C codegen-units=1 -C debuginfo=0 -C opt-level=0 -C embed-bitcode=no"
-      - CARGO_BUILD_JOBS=1 # Single-threaded compilation to minimize memory usage
-      - CARGO_INCREMENTAL=0 # Disable incremental compilation to reduce memory overhead
-      - CARGO_NET_RETRY=2 # Fewer retries to reduce memory usage when fetching dependencies
-      - CARGO_PROFILE_DEV_DEBUG=0 # Disable debug info for dev builds
-      - RUST_MIN_STACK=4194304 # Limit stack size to 4MB
-    depends_on:
-      - bitcoin
-      - lightning
     networks:
       - lightning-network
 
