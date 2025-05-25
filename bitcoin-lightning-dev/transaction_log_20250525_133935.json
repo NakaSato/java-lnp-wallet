@@ -1,0 +1,20 @@
+{
+  "timestamp": "2025-05-25T13:39:35+07:00",
+  "operation": "mint_and_lightning_funding",
+  "mint_amount_btc": "0.1",
+  "funding_amount_btc": "0.05",
+  "payment_amount_sats": "10000",
+  "bitcoin_address": "bcrt1qd37hlwvfvuylsn59hyj70mka2rs6c6j3t5nlzt",
+  "lightning_address": "bcrt1q8nlt8y4tflapmu2lptu94hqahxfy0ljzgh0dz4",
+  "funding_tx_id": "b3e93e29ba25ead921f931abe76c9e64d804a59507a4bc1849d322d57a25384f",
+  "invoice": {
+    "payment_request": "lnbcrt100u1p5r9we8pp5nlr2kmqvf255lw5uehrppzvfrskjjdzsksx9u6vk24sduhthzlpqdpc23jhxapqwpshjmt9de6zqenjdakjqmtfde6zqar0ypxxjemgw3hxjmn8cqzzsxqyz5vqsp5zv3twm4cpa8dxjrj4tc7f0wqtvaaqlu22e4kwr9flf6uaf65xc3q9qxpqysgqerp2u8shrd8clsm0j3gk36yywhhttsxa9pmczvlsznsshesvrvqxq73damvadqesg7mdraw7p8rhwv85vx83d9rwclhty5vftvnm4qqp2yhwqn",
+    "r_hash": "9fc6ab6c0c4aa94fba9ccdc61089891c2d293450b40c5e69965560de5d7717c2",
+    "amount_sats": "10000"
+  },
+  "final_balances": {
+    "bitcoin_core_btc": "99.94999859",
+    "lightning_wallet_sats": "5000000",
+    "lightning_wallet_btc": ".05000000"
+  }
+}

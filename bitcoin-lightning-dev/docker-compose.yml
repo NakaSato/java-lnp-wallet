@@ -13,8 +13,8 @@ services:
       - ./data/bitcoin:/home/bitcoin/.bitcoin
       - ./logs/bitcoin:/home/bitcoin/logs
     environment:
-      - BITCOIN_RPCUSER=${BITCOIN_RPC_USER:-lnbhokycfu}
-      - BITCOIN_RPCPASSWORD=${BITCOIN_RPC_PASSWORD:-2.%cr.3,ck\\UDiUtqjad[afR}
+      - BITCOIN_RPCUSER=lnbhokycfu
+      - BITCOIN_RPCPASSWORD=bitcoinpass
       - BITCOIN_NETWORK=${BITCOIN_NETWORK:-regtest}
       - BITCOIN_EXTRA_ARGS=-txindex=1 -rpcallowip=0.0.0.0/0 -rpcbind=0.0.0.0 -zmqpubrawblock=tcp://0.0.0.0:28332 -zmqpubrawtx=tcp://0.0.0.0:28333 -debug=1 -server=1
     restart: unless-stopped
@@ -36,7 +36,7 @@ services:
       --bitcoin.node=bitcoind
       --bitcoind.rpchost=bitcoin:18443
       --bitcoind.rpcuser=lnbhokycfu
-      --bitcoind.rpcpass=2.%cr.3,ck\\UDiUtqjad[afR
+      --bitcoind.rpcpass=bitcoinpass
       --bitcoind.zmqpubrawblock=tcp://bitcoin:28332
       --bitcoind.zmqpubrawtx=tcp://bitcoin:28333
       --rpclisten=0.0.0.0:10009
@@ -64,6 +64,25 @@ services:
     depends_on:
       - lightning
     restart: unless-stopped
+    networks:
+      - lightning-network
+
+  rtl:
+    image: shahanafarooqui/rtl:v0.15.4
+    container_name: rtl
+    restart: unless-stopped
+    ports:
+      - "3000:3000" # RTL web interface
+    volumes:
+      - ./data/rtl:/home/node/RTL/data
+    environment:
+      - RTL_CONFIG_PATH=/home/node/RTL/data
+      - LN_IMPLEMENTATION=LND
+      - LN_SERVER_URL=https://lightning:8080
+      - MACAROON_PATH=/home/node/RTL/data/lnd/macaroons
+      - LND_CONFIG_PATH=/home/node/RTL/data/lnd
+    depends_on:
+      - lightning
     networks:
       - lightning-network
 
