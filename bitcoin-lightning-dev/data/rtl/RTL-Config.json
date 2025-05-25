@@ -1,0 +1,39 @@
+{
+  "port": "3000",
+  "defaultNodeIndex": 1,
+  "SSO": {
+    "rtlSSO": 0,
+    "rtlCookiePath": "",
+    "logoutRedirectLink": ""
+  },
+  "nodes": [
+    {
+      "index": 1,
+      "lnNode": "Lightning Node",
+      "lnImplementation": "LND",
+      "authentication": {
+        "macaroonPath": "/home/node/RTL/data/lnd/macaroons",
+        "configPath": "/home/node/RTL/data/lnd"
+      },
+      "settings": {
+        "blockExplorerUrl": "http://localhost:8080",
+        "lnServerUrl": "https://lightning:8080",
+        "userPersona": "MERCHANT",
+        "themeMode": "DAY",
+        "themeColor": "PURPLE",
+        "unannouncedChannels": false,
+        "logLevel": "INFO",
+        "fiatConversion": false,
+        "swapServerUrl": "",
+        "boltzServerUrl": "",
+        "enableOffers": false,
+        "enablePeerswap": false,
+        "bitcoindConfigPath": "",
+        "channelBackupPath": "/home/node/RTL/data/channels-backup/node-1",
+        "logFile": "/home/node/RTL/data/logs/RTL-Node-1.log"
+      }
+    }
+  ],
+  "multiPassHashed": "e2dc9c67fc1820759a6f741030bf1a12b59df88ea79507c6d354ceb53e795ab8",
+  "multiPass": "password"
+}

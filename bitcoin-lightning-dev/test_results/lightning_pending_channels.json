@@ -1,7 +1,0 @@
-{
-    "total_limbo_balance":  "0",
-    "pending_open_channels":  [],
-    "pending_closing_channels":  [],
-    "pending_force_closing_channels":  [],
-    "waiting_close_channels":  []
-}
